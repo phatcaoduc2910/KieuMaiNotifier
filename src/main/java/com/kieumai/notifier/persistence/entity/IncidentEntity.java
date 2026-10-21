@@ -1,25 +1,40 @@
 package com.kieumai.notifier.persistence.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 @Entity
-@Table(name = "Incidents")
+@Table(name = "incidents")
+@Setter
+@Getter
 public class IncidentEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long id;
-    private long wardId;
+    private Long id;
+
+    @Column(name = "ward_id", nullable = false)
+    private Long wardId;
+
     private String type;
     private String title;
     private BigDecimal latitude;
-    private BigDecimal longtitude;
+    private BigDecimal longitude;
     private String status;
+
+    @Column(name = "started_at")
     private OffsetDateTime startedAt;
-    private OffsetDateTime expires;
+
+    @Column(name = "expires_at")
+    private OffsetDateTime expiresAt;
+
+    @Column(name = "alerted_at")
     private OffsetDateTime alertedAt;
+
+    @Column(name = "created_at")
     private OffsetDateTime createdAt;
 
     public long getId() {
@@ -30,12 +45,12 @@ public class IncidentEntity {
         this.id = id;
     }
 
-    public long getWard_id() {
+    public long getWardId() {
         return wardId;
     }
 
-    public void setWard_id(long ward_id) {
-        this.wardId = ward_id;
+    public void setWardId(long wardId) {
+        this.wardId = wardId;
     }
 
     public String getType() {
@@ -62,12 +77,12 @@ public class IncidentEntity {
         this.latitude = latitude;
     }
 
-    public BigDecimal getLongtitude() {
-        return longtitude;
+    public BigDecimal getLongitude() {
+        return longitude;
     }
 
-    public void setLongtitude(BigDecimal longtitude) {
-        this.longtitude = longtitude;
+    public void setLongitude(BigDecimal longitude) {
+        this.longitude = longitude;
     }
 
     public String getStatus() {
@@ -78,35 +93,35 @@ public class IncidentEntity {
         this.status = status;
     }
 
-    public OffsetDateTime getStarted_at() {
+    public OffsetDateTime getStartedAt() {
         return startedAt;
     }
 
-    public void setStarted_at(OffsetDateTime started_at) {
-        this.startedAt = started_at;
+    public void setStartedAt(OffsetDateTime startedAt) {
+        this.startedAt = startedAt;
     }
 
-    public OffsetDateTime getExpires() {
-        return expires;
+    public OffsetDateTime getExpiresAt() {
+        return expiresAt;
     }
 
-    public void setExpires(OffsetDateTime expires) {
-        this.expires = expires;
+    public void setExpiresAt(OffsetDateTime expiresAt) {
+        this.expiresAt = expiresAt;
     }
 
-    public OffsetDateTime getAlerted_at() {
+    public OffsetDateTime getAlertedAt() {
         return alertedAt;
     }
 
-    public void setAlerted_at(OffsetDateTime alerted_at) {
-        this.alertedAt = alerted_at;
+    public void setAlertedAt(OffsetDateTime alertedAt) {
+        this.alertedAt = alertedAt;
     }
 
-    public OffsetDateTime getCreated_at() {
+    public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreated_at(OffsetDateTime created_at) {
-        this.createdAt = created_at;
+    public void setCreatedAt(OffsetDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 }
