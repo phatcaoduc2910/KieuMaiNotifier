@@ -1,12 +1,17 @@
 package com.kieumai.notifier.presentation.controller;
 
 import com.kieumai.notifier.business.service.IncidentService;
+import com.kieumai.notifier.business.service.AuthService;
+import com.kieumai.notifier.persistence.entity.User;
 import com.kieumai.notifier.presentation.dto.IncidentDetailDto;
 import com.kieumai.notifier.presentation.dto.IncidentResolveDto;
 import com.kieumai.notifier.presentation.dto.IncidentResponseDto;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -14,6 +19,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class IncidentController {
     private final IncidentService incidentService;
+    private final AuthService authService;
 
     // 1. Xem danh sách sự cố (lọc theo phường và loại sự cố)
     @GetMapping("/incidents")
@@ -28,9 +34,8 @@ public class IncidentController {
     @GetMapping("/incidents/{id}")
     public ResponseEntity<IncidentDetailDto> getIncidentDetail(
             @PathVariable Long id,
-            //@RequestAttribute("userId") Long currentUserId
-            @RequestParam("userId") Long currentUserId) { // Lấy userId từ JWT Filter/Interceptor
-        IncidentDetailDto detail = incidentService.getIncidentDetail(id, currentUserId);
+            Authentication authentication) {
+        IncidentDetailDto detail = incidentService.getIncidentDetail(id, currentUserId(authentication));
         return ResponseEntity.ok(detail);
     }
 
@@ -38,9 +43,8 @@ public class IncidentController {
     @PostMapping("/incidents/{id}/confirmations")
     public ResponseEntity<Void> confirmIncident(
             @PathVariable Long id,
-            //@RequestAttribute("userId") Long currentUserId
-            @RequestParam("userId") Long currentUserId) {
-        incidentService.confirmIncident(id, currentUserId);
+            Authentication authentication) {
+        incidentService.confirmIncident(id, currentUserId(authentication));
         return ResponseEntity.ok().build();
     }
 
@@ -48,9 +52,8 @@ public class IncidentController {
     @DeleteMapping("/incidents/{id}/confirmations/me")
     public ResponseEntity<Void> unconfirmIncident(
             @PathVariable Long id,
-            //@RequestAttribute("userId") Long currentUserId
-            @RequestParam("userId") Long currentUserId) {
-        incidentService.unconfirmIncident(id, currentUserId);
+            Authentication authentication) {
+        incidentService.unconfirmIncident(id, currentUserId(authentication));
         return ResponseEntity.noContent().build();
     }
 
@@ -59,9 +62,19 @@ public class IncidentController {
     public ResponseEntity<Void> resolveIncidentEarly(
             @PathVariable Long id,
             @RequestBody IncidentResolveDto dto,
-            //@RequestAttribute("userId") Long currentUserId
-            @RequestParam("userId") Long currentUserId) {
-        incidentService.resolveIncidentEarly(id, dto, currentUserId);
+            Authentication authentication) {
+        incidentService.resolveIncidentEarly(id, dto, currentUserId(authentication));
         return ResponseEntity.ok().build();
+    }
+
+    private Long currentUserId(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
+        User user = authService.findByUsername(authentication.getName());
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
+        return user.getId();
     }
 }
