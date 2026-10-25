@@ -46,28 +46,43 @@ class ReportIntegrationTests {
     @Autowired private IncidentRepository incidents;
     @Autowired private IncidentConfirmationRepository confirmations;
     @Autowired private UserRepository users;
+    @Autowired private ReportGroupRepository groups;
+    @Autowired private ReportGroupingLockRepository groupingLocks;
     private String aliceToken;
 
     @BeforeEach
     void setUp() throws Exception {
         reports.deleteAll();
         confirmations.deleteAll();
+        groups.deleteAll();
+        groupingLocks.deleteAll();
         incidents.deleteAll();
         users.deleteAll();
         aliceToken = registerAndLogin("alice");
     }
 
     @Test
-    void creationExplicitlyWaitsForIncidentIntegrationWithoutWritingData() throws Exception {
-        var existing = seedIncident(1, "FLOOD");
-        var deadline = incidents.findById(existing.getId()).orElseThrow().getExpiresAt();
-        assertError(request("POST", "/reports", aliceToken, validReport()), 501, "INCIDENT_INTEGRATION_PENDING");
-        assertEquals(0, reports.count());
+    void thirdReportCreatesIncidentAndLaterReportsJoinIt() throws Exception {
+        var first = create(validReport(), aliceToken);
+        var second = create(validReport(), aliceToken);
+        assertTrue(first.get("incidentId").isNull());
+        assertTrue(second.get("incidentId").isNull());
+        assertEquals(0, incidents.count());
+        assertEquals(2, get("/reports?wardId=1&type=FLOOD").get("totalElements").asInt());
+        assertEquals(2, get("/me/reports?wardId=1&type=FLOOD").get("totalElements").asInt());
+
+        var third = create(validReport(), aliceToken);
+        long incidentId = third.get("incidentId").asLong();
+        assertTrue(incidentId > 0);
         assertEquals(1, incidents.count());
+        assertEquals("ACTIVE", incidents.findById(incidentId).orElseThrow().getStatus());
         assertEquals(0, confirmations.count());
-        var unchanged = incidents.findById(existing.getId()).orElseThrow();
-        assertEquals("ACTIVE", unchanged.getStatus());
-        assertEquals(deadline.toInstant(), unchanged.getExpiresAt().toInstant());
+        assertEquals(3, get("/reports?incidentId=" + incidentId).get("totalElements").asInt());
+        for (int i = 0; i < 3; i++) {
+            assertEquals(incidentId, create(validReport(), aliceToken).get("incidentId").asLong());
+        }
+        assertEquals(1, incidents.count());
+        assertEquals(6, get("/reports?incidentId=" + incidentId).get("totalElements").asInt());
     }
 
     @Test
@@ -162,7 +177,7 @@ class ReportIntegrationTests {
 
     @ParameterizedTest
     @MethodSource("invalidFields")
-    void rejectsInvalidBodyBeforePendingIntegration(String field, Object value) throws Exception {
+    void rejectsInvalidBodyWithoutWritingData(String field, Object value) throws Exception {
         Map<String, Object> body = validReport();
         body.put(field, value);
         assertError(request("POST", "/reports", aliceToken, body), 400, "VALIDATION_ERROR");
@@ -194,11 +209,130 @@ class ReportIntegrationTests {
     }
 
     @Test
-    void optionalImagesCanBeOmittedBeforePendingIntegration() throws Exception {
+    void optionalImagesCanBeOmitted() throws Exception {
         var body = validReport();
         body.remove("imageUrls");
         body.remove("locationDescription");
-        assertError(request("POST", "/reports", aliceToken, body), 501, "INCIDENT_INTEGRATION_PENDING");
+        assertEquals(0, create(body, aliceToken).get("imageUrls").size());
+    }
+
+    @Test
+    void pendingReportCanBeDeletedAndDoesNotCountTowardThreshold() throws Exception {
+        var first = create(validReport(), aliceToken);
+        create(validReport(), aliceToken);
+        assertEquals(204, request("DELETE", "/reports/" + first.get("id").asLong(), aliceToken, null).statusCode());
+        assertTrue(create(validReport(), aliceToken).get("incidentId").isNull());
+        assertEquals(0, incidents.count());
+        long incidentId = create(validReport(), aliceToken).get("incidentId").asLong();
+        assertTrue(incidentId > 0);
+        assertEquals(3, get("/reports?incidentId=" + incidentId).get("totalElements").asInt());
+    }
+
+    @Test
+    void differentAuthorsContributeReportsToSameIncident() throws Exception {
+        create(validReport(), aliceToken);
+        var bobToken = registerAndLogin("bob");
+        var carolToken = registerAndLogin("carol");
+        var second = create(validReport(), bobToken);
+        var third = create(validReport(), carolToken);
+        assertEquals(users.findByUserName("bob").getId().longValue(), second.get("userId").asLong());
+        assertTrue(third.get("incidentId").asLong() > 0);
+        assertEquals(1, get("/me/reports").get("totalElements").asInt());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"WARD", "TYPE", "DISTANCE"})
+    void unrelatedReportsCannotTriggerIncidentTogether(String difference) throws Exception {
+        create(validReport(), aliceToken);
+        create(validReport(), aliceToken);
+        var unrelated = validReport();
+        if (difference.equals("WARD")) unrelated.put("wardId", 2);
+        if (difference.equals("TYPE")) unrelated.put("type", "OTHER");
+        if (difference.equals("DISTANCE")) unrelated.put("latitude", 22);
+        assertTrue(create(unrelated, aliceToken).get("incidentId").isNull());
+        assertEquals(0, incidents.count());
+        assertTrue(create(validReport(), aliceToken).get("incidentId").asLong() > 0);
+        assertEquals(2, groups.count());
+    }
+
+    @Test
+    void groupingUsesOriginalPreciseCenterAndMeters() throws Exception {
+        var body = validReport();
+        body.put("latitude", 0);
+        body.put("longitude", 0);
+        create(body, aliceToken);
+        body.put("latitude", 0.00449);
+        create(body, aliceToken);
+        body.put("latitude", 0.00451);
+        assertTrue(create(body, aliceToken).get("incidentId").isNull());
+        assertEquals(0, incidents.count());
+        body.put("latitude", 0);
+        assertTrue(create(body, aliceToken).get("incidentId").asLong() > 0);
+        assertEquals(2, groups.count());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"RESOLVED", "FAKE", "EXPIRED", "ELAPSED"})
+    void closedOrExpiredIncidentStartsANewPendingGroup(String state) throws Exception {
+        create(validReport(), aliceToken);
+        create(validReport(), aliceToken);
+        long oldId = create(validReport(), aliceToken).get("incidentId").asLong();
+        var oldIncident = incidents.findById(oldId).orElseThrow();
+        if (state.equals("ELAPSED")) oldIncident.setExpiresAt(OffsetDateTime.now().minusSeconds(1));
+        else oldIncident.setStatus(state);
+        incidents.saveAndFlush(oldIncident);
+        assertTrue(create(validReport(), aliceToken).get("incidentId").isNull());
+        assertTrue(create(validReport(), aliceToken).get("incidentId").isNull());
+        long newId = create(validReport(), aliceToken).get("incidentId").asLong();
+        assertNotEquals(oldId, newId);
+        assertEquals(2, incidents.count());
+    }
+
+    @Test
+    void subsequentReportRenewsDeadlineAndDeleteDoesNotReopenOrRemoveIncident() throws Exception {
+        var first = create(validReport(), aliceToken);
+        create(validReport(), aliceToken);
+        long incidentId = create(validReport(), aliceToken).get("incidentId").asLong();
+        var incident = incidents.findById(incidentId).orElseThrow();
+        incident.setExpiresAt(OffsetDateTime.now().plusMinutes(1));
+        incidents.saveAndFlush(incident);
+        assertEquals(incidentId, create(validReport(), aliceToken).get("incidentId").asLong());
+        var renewed = incidents.findById(incidentId).orElseThrow().getExpiresAt();
+        assertTrue(renewed.isAfter(OffsetDateTime.now().plusHours(3)));
+        assertEquals(204, request("DELETE", "/reports/" + first.get("id").asLong(), aliceToken, null).statusCode());
+        var afterDelete = incidents.findById(incidentId).orElseThrow();
+        assertEquals("ACTIVE", afterDelete.getStatus());
+        assertEquals(renewed.toInstant(), afterDelete.getExpiresAt().toInstant());
+    }
+
+    @Test
+    void concurrentFirstReportsCreateExactlyOneIncident() throws Exception {
+        var start = new java.util.concurrent.CountDownLatch(1);
+        var futures = new java.util.ArrayList<java.util.concurrent.Future<HttpResponse<String>>>();
+        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(6)) {
+            for (int i = 0; i < 6; i++) {
+                futures.add(executor.submit(() -> {
+                    assertTrue(start.await(10, java.util.concurrent.TimeUnit.SECONDS));
+                    return request("POST", "/reports", aliceToken, validReport());
+                }));
+            }
+            start.countDown();
+            for (var future : futures) {
+                var response = future.get(20, java.util.concurrent.TimeUnit.SECONDS);
+                assertEquals(201, response.statusCode(), response.body());
+            }
+        }
+        assertEquals(6, reports.count());
+        assertEquals(1, incidents.count());
+        assertEquals(1, groups.count());
+        long incidentId = incidents.findAll().getFirst().getId();
+        assertEquals(6, get("/reports?incidentId=" + incidentId).get("totalElements").asInt());
+    }
+
+    private JsonNode create(Map<String, Object> body, String token) throws Exception {
+        var response = request("POST", "/reports", token, body);
+        assertEquals(201, response.statusCode(), response.body());
+        return json.readTree(response.body());
     }
 
     private Map<String, Object> validReport() {
