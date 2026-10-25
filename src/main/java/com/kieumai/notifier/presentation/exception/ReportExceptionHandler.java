@@ -27,7 +27,6 @@ public class ReportExceptionHandler {
             case UNAUTHORIZED -> 401;
             case REPORT_NOT_OWNED -> 403;
             case INCIDENT_NOT_FOUND, REPORT_NOT_FOUND -> 404;
-            case INCIDENT_INTEGRATION_PENDING -> 501;
         };
         return error(status, exception.getCode().name(), exception.getMessage(), request, List.of());
     }

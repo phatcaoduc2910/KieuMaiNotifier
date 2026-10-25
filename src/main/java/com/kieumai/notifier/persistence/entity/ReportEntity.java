@@ -13,7 +13,8 @@ import java.util.List;
 @Entity
 @Table(name = "reports", indexes = {
         @Index(name = "idx_reports_user", columnList = "user_id"),
-        @Index(name = "idx_reports_incident", columnList = "incident_id")
+        @Index(name = "idx_reports_incident", columnList = "incident_id"),
+        @Index(name = "idx_reports_group", columnList = "report_group_id")
 })
 @Getter
 @Setter
@@ -27,9 +28,18 @@ public class ReportEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "incident_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "incident_id")
     private IncidentEntity incident;
+
+    @Column(name = "ward_id")
+    private Long wardId;
+
+    private String type;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "report_group_id")
+    private ReportGroupEntity group;
 
     @Column(nullable = false, length = 2000)
     private String description;
