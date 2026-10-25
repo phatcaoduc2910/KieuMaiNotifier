@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -30,7 +32,13 @@ public class AuthService {
             return false;
         }
 
-        User user = new User(registerRequest.getUsername(), passwordEncoder.encode(registerRequest.getPassword()),registerRequest.getRole(),registerRequest.getDisplay_name(),registerRequest.getCreated_At());
+        String displayName = registerRequest.getDisplay_name();
+
+        if (displayName == null || displayName.isBlank()) {
+            displayName = registerRequest.getUsername();
+        }
+
+        User user = new User(registerRequest.getUsername(), passwordEncoder.encode(registerRequest.getPassword()),"USER",displayName,null);
 
         userRepository.save(user);
         return true;
@@ -56,5 +64,12 @@ public class AuthService {
 
     public User findByUsername(String username) {
         return userRepository.findByUserName(username);
+    }
+
+    public User getInfoUser () {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUserName(username);
+        return user;
+
     }
 }

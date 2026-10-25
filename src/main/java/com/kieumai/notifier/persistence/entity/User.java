@@ -74,4 +74,11 @@ public class User {
     public void setCreated_At(LocalDateTime created_At) {
         this.created_At = created_At;
     }
+
+    @PrePersist
+    protected void onCreate() {
+        if (created_At == null) {
+            created_At = LocalDateTime.now();
+        }
+    }
 }

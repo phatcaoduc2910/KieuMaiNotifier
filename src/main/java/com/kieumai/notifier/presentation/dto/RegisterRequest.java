@@ -1,13 +1,16 @@
 package com.kieumai.notifier.presentation.dto;
 
+import jakarta.validation.constraints.NotBlank;
+
 import java.time.LocalDateTime;
 
 public class RegisterRequest {
+    @NotBlank(message = "Tên đăng nhập không được để trống")
     private String username;
+    @NotBlank(message = "Password không được để trống")
     private String password;
-    private String role;
     private String display_name;
-    private LocalDateTime created_At;
+
 
     public RegisterRequest() {
     }
@@ -20,9 +23,7 @@ public class RegisterRequest {
     public RegisterRequest(String username, String password, String role, String display_name, LocalDateTime created_At) {
         this.username = username;
         this.password = password;
-        this.role = role;
         this.display_name = display_name;
-        this.created_At = created_At;
     }
 
     public String getUsername() {
@@ -41,28 +42,12 @@ public class RegisterRequest {
         this.password = password;
     }
 
-    public String getRole() {
-        return role;
-    }
-
-    public void setRole(String role) {
-        this.role = role;
-    }
-
     public String getDisplay_name() {
         return display_name;
     }
 
     public void setDisplay_name(String display_name) {
         this.display_name = display_name;
-    }
-
-    public LocalDateTime getCreated_At() {
-        return created_At;
-    }
-
-    public void setCreated_At(LocalDateTime created_At) {
-        this.created_At = created_At;
     }
 
     public static RegisterRequestBuilder builder() {
