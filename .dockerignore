@@ -1,0 +1,13 @@
+# Only send the Maven project to the build context.
+**
+!pom.xml
+!mvnw
+!.mvn/
+!.mvn/**
+!src/
+!src/**
+
+# The image uses the docker profile and excludes local connection settings.
+src/main/resources/application.properties
+src/main/resources/application-local.*
+src/main/resources/application-dev.*

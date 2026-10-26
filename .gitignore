@@ -31,3 +31,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local Docker configuration and database backups ###
+.env
+.env.*
+!.env.example
+backups/
+application-local.properties
