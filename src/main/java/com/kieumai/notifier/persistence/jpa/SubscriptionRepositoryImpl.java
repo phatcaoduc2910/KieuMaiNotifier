@@ -25,7 +25,6 @@ public class SubscriptionRepositoryImpl implements SubscriptionRepository {
         try {
             return toModel(jpaRepository.saveAndFlush(entity));
         } catch (DataIntegrityViolationException e) {
-            // Two concurrent requests both passed existsBy...; the UNIQUE constraint rejected the second one.
             throw new AlreadySubscribedException(subscription.userId(), subscription.wardId());
         }
     }

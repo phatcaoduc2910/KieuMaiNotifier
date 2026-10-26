@@ -7,9 +7,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-/**
- * Inserts a small set of Hà Nội wards when the table is empty, so the API is usable right after startup.
- */
 @Component
 public class WardSeeder implements ApplicationRunner {
 
