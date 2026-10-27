@@ -258,9 +258,32 @@ class DatabaseIntegrationTests {
         assertNotNull(created.id());
         assertTrue(subscriptionPort.existsByUserIdAndWardId(user.getId(), otherWard.getId()));
         assertEquals(2, subscriptionPort.findByUserId(user.getId()).size());
+        assertEquals(java.util.stream.Stream.of(ward.getId(), otherWard.getId()).sorted().toList(),
+                subscriptionPort.findWardIdsByUserId(user.getId()));
         assertEquals(List.of(user.getId()), subscriptionPort.findUserIdsByWardId(otherWard.getId()));
         assertTrue(subscriptionPort.deleteByUserIdAndWardId(user.getId(), otherWard.getId()));
         assertFalse(subscriptionPort.existsByUserIdAndWardId(user.getId(), otherWard.getId()));
+        assertEquals(List.of(ward.getId()), subscriptionPort.findWardIdsByUserId(user.getId()));
+    }
+
+    @Test
+    void wardIdsAreScopedToTheRequestedUser() {
+        var otherUser = new User();
+        otherUser.setUsername("another-database-user");
+        otherUser.setPasswordHash("test-only-password-hash");
+        otherUser.setDisplayName("Another user");
+        otherUser = users.saveAndFlush(otherUser);
+
+        var otherWard = new WardEntity();
+        otherWard.setCode("DB-OTHER-USER");
+        otherWard.setName("Other ward");
+        otherWard.setProvinceName("Test province");
+        otherWard = wards.saveAndFlush(otherWard);
+
+        subscriptionPort.save(new Subscription(null, otherUser.getId(), otherWard.getId(), Instant.now()));
+        assertEquals(List.of(ward.getId()), subscriptionPort.findWardIdsByUserId(user.getId()));
+        assertEquals(List.of(otherWard.getId()), subscriptionPort.findWardIdsByUserId(otherUser.getId()));
+        assertTrue(subscriptionPort.findWardIdsByUserId(Long.MAX_VALUE).isEmpty());
     }
 
     @Test

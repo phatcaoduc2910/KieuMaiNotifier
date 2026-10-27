@@ -36,11 +36,15 @@ Build lần đầu tải Java và Maven dependencies nên có thể mất vài p
 
 Compose đợi PostgreSQL vượt qua healthcheck rồi mới khởi động API. Chờ log `Started NotifierApplication`, sau đó nhấn Ctrl+C để dừng xem log; container vẫn chạy.
 
-Kiểm tra API:
+Mở Swagger UI tại [http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html).
+Trang tài liệu và hai API đăng ký/đăng nhập không yêu cầu xác thực.
 
-```powershell
-Invoke-RestMethod 'http://localhost:8080/reports?page=0&size=20'
-```
+1. Mở `POST /auth/register`, chọn **Try it out**, nhập `username`, `password` (ít nhất 8 ký tự) và `displayName`, rồi chọn **Execute**.
+2. Mở `POST /auth/login`, gửi cùng `username`, `password`, rồi copy giá trị `token` trong response.
+3. Chọn **Authorize**, dán token vào `bearerAuth` (không thêm tiền tố `Bearer`), rồi chọn **Authorize** và **Close**.
+4. Mở `GET /reports`, chọn **Try it out** và **Execute** để kiểm tra. Database mới trả danh sách rỗng.
+
+Các API nghiệp vụ vẫn yêu cầu JWT; gọi khi chưa đăng nhập trả `401`. Không mở trực tiếp `/auth/register` trên thanh địa chỉ trình duyệt: thao tác đó gửi GET, trong khi API đăng ký nhận POST.
 
 Database mới có dữ liệu rỗng. Flyway tạo sáu bảng nghiệp vụ, sau đó Hibernate kiểm tra mapping bằng `ddl-auto=validate`. Database cũ không tự nâng cấp; xem [DATABASE.md](DATABASE.md) trước khi đổi phiên bản. Dữ liệu PostgreSQL cũ không tự chuyển vào container.
 

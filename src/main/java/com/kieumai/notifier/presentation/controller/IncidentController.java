@@ -35,4 +35,11 @@ public class IncidentController {
         incidentService.resolveIncidentEarly(id);
         return ResponseEntity.ok().build();
     }
+
+    @GetMapping("/incidents/feed")
+    public ResponseEntity<List<IncidentResponseDto>> getFeed(
+            @RequestParam("userId") Long userId) {
+        List<IncidentResponseDto> feed = incidentService.getFeed(userId);
+        return ResponseEntity.ok(feed);
+    }
 }

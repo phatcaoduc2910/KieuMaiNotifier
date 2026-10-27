@@ -8,6 +8,7 @@ import com.kieumai.notifier.presentation.dto.LoginResponse;
 import com.kieumai.notifier.presentation.dto.RegisterRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@SecurityRequirements
 public class AuthController {
     @Autowired
     private AuthService authService;

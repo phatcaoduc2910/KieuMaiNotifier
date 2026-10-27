@@ -13,4 +13,6 @@ public interface IncidentRepository extends JpaRepository<IncidentEntity, Long> 
     List<IncidentEntity> findByStatusInAndExpiresAtBefore(Collection<String> statuses, OffsetDateTime now);
     List<IncidentEntity> findByWardIdAndTypeAndStatusInAndExpiresAtAfterOrderByIdAsc(
             Long wardId, String type, Collection<String> statuses, OffsetDateTime now);
+
+    List<IncidentEntity> findByStatus(String status);
 }

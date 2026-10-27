@@ -35,6 +35,12 @@ class InMemorySubscriptionRepository implements SubscriptionRepository {
     }
 
     @Override
+    public List<Long> findWardIdsByUserId(Long userId) {
+        return rows.stream().filter(s -> s.userId() == userId)
+                .map(Subscription::wardId).sorted().toList();
+    }
+
+    @Override
     public boolean deleteByUserIdAndWardId(long userId, long wardId) {
         return rows.removeIf(s -> s.userId() == userId && s.wardId() == wardId);
     }
