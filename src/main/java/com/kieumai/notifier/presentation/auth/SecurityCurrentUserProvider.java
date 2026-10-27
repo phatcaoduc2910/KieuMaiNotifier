@@ -17,7 +17,7 @@ public class SecurityCurrentUserProvider implements CurrentUserProvider {
     }
 
     @Override
-    public long currentUserId() {
+    public CurrentUser currentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication instanceof AnonymousAuthenticationToken) {
             throw new UnauthenticatedException("Authentication is required.");
@@ -26,6 +26,6 @@ public class SecurityCurrentUserProvider implements CurrentUserProvider {
         if (user == null) {
             throw new UnauthenticatedException("User no longer exists.");
         }
-        return user.getId();
+        return new CurrentUser(user.getId(), user.getUsername());
     }
 }
