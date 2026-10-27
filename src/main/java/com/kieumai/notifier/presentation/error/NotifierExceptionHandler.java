@@ -5,6 +5,7 @@ import com.kieumai.notifier.business.exception.SubscriptionNotFoundException;
 import com.kieumai.notifier.business.exception.WardNotFoundException;
 import com.kieumai.notifier.presentation.auth.UnauthenticatedException;
 import com.kieumai.notifier.presentation.controller.FeedController;
+import com.kieumai.notifier.presentation.controller.MeController;
 import com.kieumai.notifier.presentation.controller.SubscriptionController;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -22,7 +23,8 @@ import java.util.List;
 
 @RestControllerAdvice(assignableTypes = {
         SubscriptionController.class,
-        FeedController.class
+        FeedController.class,
+        MeController.class
 })
 public class NotifierExceptionHandler {
 
