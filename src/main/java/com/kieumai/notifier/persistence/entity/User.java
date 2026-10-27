@@ -1,77 +1,35 @@
 package com.kieumai.notifier.persistence.entity;
 
 import jakarta.persistence.*;
-
-import java.time.LocalDateTime;
+import lombok.Getter;
+import lombok.Setter;
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 @Entity
-@Table(name = "Users")
+@Table(name = "users")
+@Getter
+@Setter
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String userName;
-    private String passWord;
-    private String role;
-    private String display_name;
-    private LocalDateTime created_At;
+    @Column(nullable = false, unique = true, length = 100)
+    private String username;
+    @Column(name = "password_hash", nullable = false)
+    private String passwordHash;
+    @Column(name = "display_name", nullable = false)
+    private String displayName;
+    @Column(precision = 10, scale = 7)
+    private BigDecimal latitude;
+    @Column(precision = 10, scale = 7)
+    private BigDecimal longitude;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private OffsetDateTime createdAt;
 
-    public User() {
-    }
-
-    public User(String userName, String passWord, String role, String display_name, LocalDateTime created_At) {
-        this.userName = userName;
-        this.passWord = passWord;
-        this.role = role;
-        this.display_name = display_name;
-        this.created_At = created_At;
-    }
-
-    public String getUserName() {
-        return userName;
-    }
-
-    public void setUserName(String userName) {
-        this.userName = userName;
-    }
-
-    public String getPassWord() {
-        return passWord;
-    }
-
-    public void setPassWord(String passWord) {
-        this.passWord = passWord;
-    }
-
-    public String getRole() {
-        return role;
-    }
-
-    public void setRole(String role) {
-        this.role = role;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getDisplay_name() {
-        return display_name;
-    }
-
-    public void setDisplay_name(String display_name) {
-        this.display_name = display_name;
-    }
-
-    public LocalDateTime getCreated_At() {
-        return created_At;
-    }
-
-    public void setCreated_At(LocalDateTime created_At) {
-        this.created_At = created_At;
+    @PrePersist
+    void initializeCreatedAt() {
+        if (createdAt == null) createdAt = OffsetDateTime.now(ZoneOffset.UTC);
     }
 }

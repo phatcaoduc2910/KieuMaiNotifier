@@ -10,6 +10,8 @@ import com.kieumai.notifier.persistence.repository.WardRepository;
 import java.time.Instant;
 import java.util.List;
 
+@org.springframework.stereotype.Service
+@org.springframework.transaction.annotation.Transactional
 public class SubscriptionService {
 
     private final SubscriptionRepository subscriptionRepository;
