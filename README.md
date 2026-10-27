@@ -5,16 +5,11 @@ Hướng dẫn publish image lên GitHub Container Registry và chạy image đ�
 ```mermaid
 erDiagram
     USERS ||--o{ REPORTS : "gui"
-    USERS ||--o{ INCIDENT_CONFIRMATIONS : "xac_nhan"
     USERS ||--o{ SUBSCRIPTIONS : "dang_ky"
-    USERS ||--o{ NOTIFICATIONS : "nhan"
     USERS ||--o{ REPORT_UPDATES : "bo_sung"
     WARDS ||--o{ INCIDENTS : "co"
     WARDS ||--o{ SUBSCRIPTIONS : "duoc_theo_doi"
     INCIDENTS ||--o{ REPORTS : "gom"
-    INCIDENTS ||--o{ INCIDENT_CONFIRMATIONS : "duoc_xac_nhan"
-    INCIDENTS ||--o{ NOTIFICATIONS : "phat_sinh"
-    REPORTS ||--o{ REPORT_IMAGES : "dinh_kem"
     REPORTS ||--o{ REPORT_UPDATES : "co_dien_bien"
 
     USERS {
@@ -58,33 +53,10 @@ erDiagram
         timestamptz deleted_at "nullable"
     }
 
-    INCIDENT_CONFIRMATIONS {
-        bigint incident_id PK, FK
-        bigint user_id PK, FK
-        timestamptz created_at
-    }
-
     SUBSCRIPTIONS {
         bigint id PK
         bigint user_id FK
         bigint ward_id FK
-        timestamptz created_at
-    }
-
-    NOTIFICATIONS {
-        bigint id PK
-        bigint user_id FK
-        bigint incident_id FK
-        varchar title
-        text message
-        timestamptz created_at
-        timestamptz read_at "nullable"
-    }
-
-    REPORT_IMAGES {
-        bigint id PK
-        bigint report_id FK
-        text image_url
         timestamptz created_at
     }
 
