@@ -46,6 +46,12 @@ public class SubscriptionRepositoryAdapter implements SubscriptionRepository {
         return repository.deleteByUser_IdAndWard_Id(userId, wardId) > 0;
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<Long> findWardIdsByUserId(Long userId) {
+        return repository.findWardIdsByUserId(userId);
+    }
+
     private Subscription toModel(SubscriptionEntity entity) {
         return new Subscription(entity.getId(), entity.getUser().getId(),
                 entity.getWard().getId(), entity.getCreatedAt().toInstant());

@@ -10,6 +10,9 @@ public interface JpaSubscriptionRepository extends JpaRepository<SubscriptionEnt
     List<SubscriptionEntity> findByUser_IdOrderByIdAsc(long userId);
     long deleteByUser_IdAndWard_Id(long userId, long wardId);
 
+    @Query("select s.ward.id from SubscriptionEntity s where s.user.id = :userId order by s.ward.id")
+    List<Long> findWardIdsByUserId(@Param("userId") Long userId);
+
     @Query("select s.user.id from SubscriptionEntity s where s.ward.id = :wardId")
     List<Long> findUserIdsByWardId(@Param("wardId") long wardId);
 }
