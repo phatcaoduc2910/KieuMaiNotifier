@@ -43,6 +43,7 @@ class NotifierIntegrationTests extends ApiIntegrationSupport {
         assertEquals(401, request("POST", "/me/subscriptions", null, Map.of("wardId", wardA)).statusCode());
         assertEquals(401, request("GET", "/me/feed", null, null).statusCode());
         assertEquals(401, request("GET", "/wards", null, null).statusCode());
+        assertEquals(401, request("GET", "/me", null, null).statusCode());
     }
 
     @Test
@@ -71,5 +72,14 @@ class NotifierIntegrationTests extends ApiIntegrationSupport {
         assertEquals("TEST-A", wardList.get(0).get("code").asText());
         assertEquals("Test province", wardList.get(0).get("provinceName").asText());
         assertEquals(wardB, wardList.get(1).get("id").asLong());
+    }
+
+    @Test
+    void meReturnsIdAndUsernameOfTokenOwner() throws Exception {
+        var me = get("/me");
+
+        assertEquals("alice", me.get("username").asText());
+        assertEquals(users.findByUsername("alice").getId(), me.get("userId").asLong());
+        assertFalse(me.toString().contains("password"));
     }
 }
