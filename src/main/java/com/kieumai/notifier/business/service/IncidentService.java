@@ -2,6 +2,7 @@ package com.kieumai.notifier.business.service;
 
 import com.kieumai.notifier.business.exception.ReportException;
 import com.kieumai.notifier.persistence.entity.IncidentEntity;
+import com.kieumai.notifier.persistence.entity.User;
 import com.kieumai.notifier.persistence.repository.*;
 import com.kieumai.notifier.presentation.dto.*;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.kieumai.notifier.business.exception.ReportException.Code.*;
 
@@ -20,6 +22,10 @@ public class IncidentService {
     private final IncidentRepository incidentRepository;
     private final ReportRepository reportRepository;
     private final WardRepository wardRepository;
+    private final UserRepository userRepository;
+    private final SubscriptionRepository subscriptionRepository;
+
+    private static final double MAX_DISTANCE_KM = 1.0;
 
     public List<IncidentResponseDto> getIncidents(Long wardId, String type) {
         List<IncidentEntity> incidents;
@@ -60,6 +66,40 @@ public class IncidentService {
     private IncidentEntity findIncident(Long incidentId) {
         return incidentRepository.findById(incidentId)
                 .orElseThrow(() -> new ReportException(INCIDENT_NOT_FOUND, "Incident does not exist."));
+    }
+
+    // Trả về list các incident thoả mãn(cùng phường/ bán kính 1km)
+    @Transactional
+    public List<IncidentResponseDto> getFeed(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại với ID: " + userId));
+
+        List<Long> subscribedWardIds = subscriptionRepository.findWardIdsByUserId(userId);
+        List<IncidentEntity> activeIncidents = incidentRepository.findByStatus("ACTIVE");
+
+        return activeIncidents.stream()
+                .filter(incident -> isEligibleForFeed(user, subscribedWardIds, incident))
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    private boolean isEligibleForFeed(User user, List<Long> subscribedWardIds, IncidentEntity incident) {
+        boolean isSubscribedWard = incident.getWard() != null
+                && subscribedWardIds.contains(incident.getWardId());
+
+        if(isSubscribedWard) return true;
+
+        if(user.getLatitude() != null && user.getLongitude() != null
+        && incident.getLatitude() != null && incident.getLongitude() != null) {
+            double distance = GeoUtils.distanceMeters(
+                    user.getLatitude().doubleValue(),
+                    user.getLongitude().doubleValue(),
+                    incident.getLatitude().doubleValue(),
+                    incident.getLongitude().doubleValue());
+            return distance <= MAX_DISTANCE_KM;
+        }
+
+        return false;
     }
 
     private IncidentResponseDto toResponse(IncidentEntity incident) {

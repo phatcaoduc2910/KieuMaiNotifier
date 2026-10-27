@@ -14,4 +14,6 @@ public interface SubscriptionRepository {
     List<Long> findUserIdsByWardId(long wardId);
 
     boolean deleteByUserIdAndWardId(long userId, long wardId);
+
+    List<Long> findWardIdsByUserId(Long userId);
 }
