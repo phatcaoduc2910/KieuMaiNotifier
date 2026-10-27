@@ -1,130 +1,78 @@
 package com.kieumai.notifier.business.service;
 
-import com.kieumai.notifier.persistence.entity.IncidentConfirmationEntity;
+import com.kieumai.notifier.business.exception.ReportException;
 import com.kieumai.notifier.persistence.entity.IncidentEntity;
-import com.kieumai.notifier.persistence.entity.User;
-import com.kieumai.notifier.persistence.repository.IncidentConfirmationRepository;
-import com.kieumai.notifier.persistence.repository.IncidentRepository;
-import com.kieumai.notifier.persistence.repository.UserRepository;
-import com.kieumai.notifier.presentation.dto.IncidentDetailDto;
-import com.kieumai.notifier.presentation.dto.IncidentResolveDto;
-import com.kieumai.notifier.presentation.dto.IncidentResponseDto;
+import com.kieumai.notifier.persistence.repository.*;
+import com.kieumai.notifier.presentation.dto.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
-import java.util.stream.Collectors;
+
+import static com.kieumai.notifier.business.exception.ReportException.Code.*;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class IncidentService {
-
-    // THÊM TỪ KHÓA 'final' CHO TẤT CẢ CÁC REPOSITORY ĐỂ LOMBOK TIÊM DEPENDENCY
     private final IncidentRepository incidentRepository;
-    private final IncidentConfirmationRepository confirmationRepository;
-    private final UserRepository userRepository;
+    private final ReportRepository reportRepository;
+    private final WardRepository wardRepository;
 
-    @Transactional(readOnly = true)
     public List<IncidentResponseDto> getIncidents(Long wardId, String type) {
-        List<IncidentEntity> entities;
-
-        if (wardId != null && type != null) {
-            entities = incidentRepository.findByWardIdAndType(wardId, type);
-        } else if (wardId != null) {
-            entities = incidentRepository.findByWardId(wardId);
-        } else if (type != null) {
-            entities = incidentRepository.findByType(type);
-        } else {
-            entities = incidentRepository.findAll();
-        }
-
-        return entities.stream().map(this::mapToResponseDto).collect(Collectors.toList());
+        List<IncidentEntity> incidents;
+        if (wardId != null && type != null) incidents = incidentRepository.findByWardIdAndType(wardId, type);
+        else if (wardId != null) incidents = incidentRepository.findByWardId(wardId);
+        else if (type != null) incidents = incidentRepository.findByType(type);
+        else incidents = incidentRepository.findAll();
+        return incidents.stream().map(this::toResponse).toList();
     }
 
-    @Transactional(readOnly = true)
-    public IncidentDetailDto getIncidentDetail(Long incidentId, Long currentUserId) {
-        IncidentEntity incident = incidentRepository.findById(incidentId)
-                .orElseThrow(() -> new RuntimeException("Sự cố không tồn tại với ID: " + incidentId));
-
-        boolean isConfirmedByMe = false;
-        if (currentUserId != null) {
-            isConfirmedByMe = confirmationRepository.existsByIdIncidentIdAndIdUserId(incidentId, currentUserId);
-        }
-
-        return mapToDetailDto(incident, isConfirmedByMe);
+    public IncidentDetailDto getIncidentDetail(Long incidentId) {
+        var incident = findIncident(incidentId);
+        var response = new IncidentDetailDto();
+        response.setId(incident.getId());
+        response.setWardId(incident.getWardId());
+        response.setType(incident.getType());
+        response.setStatus(incident.getStatus());
+        response.setLatitude(incident.getLatitude());
+        response.setLongitude(incident.getLongitude());
+        response.setTitle(incident.getTitle());
+        response.setReportCount(reportRepository.countByIncidentIdAndDeletedAtIsNull(incidentId));
+        response.setAlertedAt(incident.getAlertedAt());
+        response.setExpiresAt(incident.getExpiresAt());
+        response.setCreatedAt(incident.getCreatedAt());
+        return response;
     }
 
     @Transactional
-    public void confirmIncident(Long incidentId, Long userId) {
-        IncidentEntity incident = incidentRepository.findById(incidentId)
-                .orElseThrow(() -> new RuntimeException("Sự cố không tồn tại với ID: " + incidentId));
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại với ID: " + userId));
-
-        if (confirmationRepository.existsByIdIncidentIdAndIdUserId(incidentId, userId)) {
-            return;
-        }
-
-        IncidentConfirmationEntity confirmation = new IncidentConfirmationEntity(incident, user);
-        confirmationRepository.save(confirmation);
-
-        long confirmCount = confirmationRepository.countByIdIncidentId(incidentId);
-
-        if ("PENDING".equalsIgnoreCase(incident.getStatus()) && confirmCount >= 3) {
-            incident.setStatus("ACTIVE");
-            incident.setExpiresAt(OffsetDateTime.now().plusHours(4));
-            incidentRepository.save(incident);
-        }
-    }
-
-    @Transactional
-    public void unconfirmIncident(Long incidentId, Long userId) {
-        if (confirmationRepository.existsByIdIncidentIdAndIdUserId(incidentId, userId)) {
-            confirmationRepository.deleteByIdIncidentIdAndUserId(incidentId, userId);
-        }
-    }
-
-    @Transactional
-    public void resolveIncidentEarly(Long incidentId, IncidentResolveDto dto, Long userId) {
-        IncidentEntity incident = incidentRepository.findById(incidentId)
-                .orElseThrow(() -> new RuntimeException("Sự cố không tồn tại với ID: " + incidentId));
-
+    public void resolveIncidentEarly(Long incidentId) {
+        var existing = findIncident(incidentId);
+        wardRepository.findByIdForUpdate(existing.getWardId()).orElseThrow();
+        // Reload after acquiring the same ward lock used by report creation.
+        var incident = incidentRepository.findById(incidentId).orElseThrow();
         incident.setStatus("RESOLVED");
-        incident.setExpiresAt(OffsetDateTime.now());
-        incidentRepository.save(incident);
+        incident.setExpiresAt(OffsetDateTime.now(ZoneOffset.UTC));
     }
 
-    private IncidentResponseDto mapToResponseDto(IncidentEntity entity) {
-        IncidentResponseDto dto = new IncidentResponseDto();
-        dto.setId(entity.getId());
-        dto.setWardId(entity.getWardId());
-        dto.setType(entity.getType());
-        dto.setStatus(entity.getStatus());
-        dto.setLatitude(entity.getLatitude());
-        dto.setLongitude(entity.getLongitude());
-        dto.setTitle(entity.getTitle());
-        dto.setConfirmationCount(confirmationRepository.countByIdIncidentId(entity.getId()));
-        dto.setExpiresAt(entity.getExpiresAt());
-        return dto;
+    private IncidentEntity findIncident(Long incidentId) {
+        return incidentRepository.findById(incidentId)
+                .orElseThrow(() -> new ReportException(INCIDENT_NOT_FOUND, "Incident does not exist."));
     }
 
-    private IncidentDetailDto mapToDetailDto(IncidentEntity entity, boolean isConfirmedByMe) {
-        IncidentDetailDto dto = new IncidentDetailDto();
-        dto.setId(entity.getId());
-        dto.setWardId(entity.getWardId());
-        dto.setType(entity.getType());
-        dto.setStatus(entity.getStatus());
-        dto.setLatitude(entity.getLatitude());
-        dto.setLongitude(entity.getLongitude());
-        dto.setTitle(entity.getTitle());
-        dto.setConfirmationCount(confirmationRepository.countByIdIncidentId(entity.getId()));
-        dto.setConfirmedByMe(isConfirmedByMe);
-        dto.setAlertedAt(entity.getAlertedAt());
-        dto.setExpiresAt(entity.getExpiresAt());
-        dto.setCreatedAt(entity.getCreatedAt());
-        return dto;
+    private IncidentResponseDto toResponse(IncidentEntity incident) {
+        var response = new IncidentResponseDto();
+        response.setId(incident.getId());
+        response.setWardId(incident.getWardId());
+        response.setType(incident.getType());
+        response.setStatus(incident.getStatus());
+        response.setLatitude(incident.getLatitude());
+        response.setLongitude(incident.getLongitude());
+        response.setTitle(incident.getTitle());
+        response.setReportCount(reportRepository.countByIncidentIdAndDeletedAtIsNull(incident.getId()));
+        response.setExpiresAt(incident.getExpiresAt());
+        return response;
     }
 }

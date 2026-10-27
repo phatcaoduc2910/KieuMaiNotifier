@@ -42,7 +42,7 @@ Kiểm tra API:
 Invoke-RestMethod 'http://localhost:8080/reports?page=0&size=20'
 ```
 
-Database mới sẽ có dữ liệu rỗng. Hibernate tạo/cập nhật bảng theo cấu hình phát triển `ddl-auto=update`. Dữ liệu PostgreSQL cũ không tự chuyển vào container.
+Database mới có dữ liệu rỗng. Flyway tạo sáu bảng nghiệp vụ, sau đó Hibernate kiểm tra mapping bằng `ddl-auto=validate`. Database cũ không tự nâng cấp; xem [DATABASE.md](DATABASE.md) trước khi đổi phiên bản. Dữ liệu PostgreSQL cũ không tự chuyển vào container.
 
 Nếu cổng `8080` đang được backend IntelliJ sử dụng, dừng backend đó hoặc đổi `APP_PORT=8081` trong `.env`, rồi chạy lại Compose. Khi đó API ở `http://localhost:8081`.
 
@@ -66,6 +66,8 @@ Các biến `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` khởi tạo Pos
 
 ## 3. Chuyển dữ liệu PostgreSQL cũ vào Docker
 
+Các bước backup/restore dưới đây áp dụng cho dump đã khớp schema hiện tại và có lịch sử Flyway tương ứng. Dump từ phiên bản Hibernate cũ cần chuyển đổi theo [DATABASE.md](DATABASE.md) trước khi dùng backend mới.
+
 Giữ database gốc để đối chiếu. Không sao chép trực tiếp thư mục dữ liệu PostgreSQL trên Windows vào Linux container. Dùng backup/restore.
 
 Cách đơn giản với pgAdmin:
@@ -77,7 +79,7 @@ Cách đơn giản với pgAdmin:
    docker compose stop api
    ```
 
-3. Tại kết nối `KieuMai Docker` (`localhost:5434`), tạo database mới tên `kieumai_notifier_import`, owner `postgres`. Dùng tên mới này để tránh xung đột với các bảng Hibernate đã tạo trong database mặc định.
+3. Tại kết nối `KieuMai Docker` (`localhost:5434`), tạo database mới tên `kieumai_notifier_import`, owner `postgres`. Dùng tên mới này để tránh xung đột với các bảng Flyway đã tạo trong database mặc định.
 4. Chọn database mới, nhấn **Restore**, chọn tệp `.dump`. Bật **Do not save > Owner** và **Privileges** nếu bản backup có role hoặc quyền từ máy cũ. Trong **Query Options**, bật **Single transaction** để lỗi restore không để lại dữ liệu dở dang. Giữ **Include CREATE DATABASE statement** và **Clean before restore** ở trạng thái tắt. Kiểm tra restore hoàn tất không có lỗi trước khi tiếp tục.
 5. Kiểm tra bảng và số lượng bản ghi trên database mới. Đổi `.env` thành `POSTGRES_DB=kieumai_notifier_import`. Database đã được tạo tại bước 3; việc sửa `.env` chỉ chuyển cấu hình kết nối.
 6. Chạy lại:

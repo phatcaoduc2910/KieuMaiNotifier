@@ -1,3 +1,5 @@
+Khởi tạo database và API theo schema mới: [docs/DATABASE.md](docs/DATABASE.md).
+
 Hướng dẫn chạy backend và PostgreSQL bằng Docker Compose: [docs/DOCKER.md](docs/DOCKER.md).
 
 Hướng dẫn publish image lên GitHub Container Registry và chạy image đã build: [docs/GHCR.md](docs/GHCR.md).

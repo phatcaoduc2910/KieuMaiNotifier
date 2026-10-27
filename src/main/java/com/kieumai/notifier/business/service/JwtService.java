@@ -26,7 +26,6 @@ public class JwtService {
 
         String token = Jwts.builder()
                 .subject(username)
-                .claim("role", "ADMIN")
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expirationMs))
                 .signWith(getSigningKey())

@@ -2,11 +2,8 @@ package com.kieumai.notifier.presentation.controller;
 
 import com.kieumai.notifier.business.exception.ReportException;
 import com.kieumai.notifier.business.model.Report;
-import com.kieumai.notifier.business.service.AuthService;
-import com.kieumai.notifier.business.service.ReportService;
-import com.kieumai.notifier.presentation.dto.CreateReportRequest;
-import com.kieumai.notifier.presentation.dto.PageResponse;
-import com.kieumai.notifier.presentation.dto.ReportDto;
+import com.kieumai.notifier.business.service.*;
+import com.kieumai.notifier.presentation.dto.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,8 +24,6 @@ public class ReportController {
         report.setWardId(request.getWardId());
         report.setType(request.getType());
         report.setDescription(request.getDescription());
-        report.setLocationDescription(request.getLocationDescription());
-        report.setImageUrls(request.getImageUrls());
         report.setLatitude(request.getLatitude());
         report.setLongitude(request.getLongitude());
         report.setObservedAt(request.getObservedAt());
@@ -80,8 +75,6 @@ public class ReportController {
         response.setWardId(report.getWardId());
         response.setType(report.getType());
         response.setDescription(report.getDescription());
-        response.setLocationDescription(report.getLocationDescription());
-        response.setImageUrls(report.getImageUrls());
         response.setLatitude(report.getLatitude());
         response.setLongitude(report.getLongitude());
         response.setObservedAt(report.getObservedAt());

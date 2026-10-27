@@ -7,6 +7,7 @@ import com.kieumai.notifier.presentation.dto.LoginRequest;
 import com.kieumai.notifier.presentation.dto.LoginResponse;
 import com.kieumai.notifier.presentation.dto.RegisterRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -23,7 +24,7 @@ public class AuthController {
 
 
     @PostMapping("/auth/register")
-    public ResponseEntity<String> register(@RequestBody RegisterRequest registerRequest) {
+    public ResponseEntity<String> register(@Valid @RequestBody RegisterRequest registerRequest) {
         if (!authService.register(registerRequest)) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body("User đã tồn tại");
         }
