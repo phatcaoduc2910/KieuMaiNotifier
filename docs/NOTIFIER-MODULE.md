@@ -5,6 +5,7 @@ Schema và cách khởi tạo database xem [DATABASE.md](DATABASE.md). Module d�
 | Method | Đường dẫn | Body | Kết quả | Lỗi |
 | --- | --- | --- | --- | --- |
 | `POST` | `/me/subscriptions` | `{"wardId": 1}` | `201` `{id, wardId, createdAt}` | `400`, `401`, `404 WARD_NOT_FOUND`, `409 ALREADY_SUBSCRIBED` |
+| `GET` | `/me` | | `200` `{userId, username}` của người giữ token | `401` |
 | `GET` | `/me/subscriptions` | | `200` `[{id, wardId, createdAt}]` | `401` |
 | `DELETE` | `/me/subscriptions/{wardId}` | | `204` | `401`, `404 SUBSCRIPTION_NOT_FOUND` |
 | `GET` | `/wards` | | `200` `[{id, code, name, provinceName}]` theo tỉnh rồi tên | `401` |
