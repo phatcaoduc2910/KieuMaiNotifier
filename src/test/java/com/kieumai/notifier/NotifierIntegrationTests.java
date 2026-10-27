@@ -42,6 +42,7 @@ class NotifierIntegrationTests extends ApiIntegrationSupport {
         assertEquals(401, request("GET", "/me/subscriptions", null, null).statusCode());
         assertEquals(401, request("POST", "/me/subscriptions", null, Map.of("wardId", wardA)).statusCode());
         assertEquals(401, request("GET", "/me/feed", null, null).statusCode());
+        assertEquals(401, request("GET", "/wards", null, null).statusCode());
     }
 
     @Test
@@ -59,5 +60,16 @@ class NotifierIntegrationTests extends ApiIntegrationSupport {
         var otherFeed = request("GET", "/me/feed", otherToken, null);
         assertEquals(200, otherFeed.statusCode());
         assertEquals(0, json.readTree(otherFeed.body()).size());
+    }
+
+    @Test
+    void wardsAreListedSoClientCanPickOneToFollow() throws Exception {
+        var wardList = get("/wards");
+
+        assertEquals(2, wardList.size());
+        assertEquals(wardA, wardList.get(0).get("id").asLong());
+        assertEquals("TEST-A", wardList.get(0).get("code").asText());
+        assertEquals("Test province", wardList.get(0).get("provinceName").asText());
+        assertEquals(wardB, wardList.get(1).get("id").asLong());
     }
 }
