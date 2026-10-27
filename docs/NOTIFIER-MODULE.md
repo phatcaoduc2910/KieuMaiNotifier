@@ -7,6 +7,7 @@ Schema và cách khởi tạo database xem [DATABASE.md](DATABASE.md). Module d�
 | `POST` | `/me/subscriptions` | `{"wardId": 1}` | `201` `{id, wardId, createdAt}` | `400`, `401`, `404 WARD_NOT_FOUND`, `409 ALREADY_SUBSCRIBED` |
 | `GET` | `/me/subscriptions` | | `200` `[{id, wardId, createdAt}]` | `401` |
 | `DELETE` | `/me/subscriptions/{wardId}` | | `204` | `401`, `404 SUBSCRIPTION_NOT_FOUND` |
+| `GET` | `/wards` | | `200` `[{id, code, name, provinceName}]` theo tỉnh rồi tên | `401` |
 | `GET` | `/me/feed` | | `200` `[{incidentId, wardId, type, title, latitude, longitude, createdAt, expiresAt}]` | `401` |
 
 Mọi API cần JWT. `userId` lấy từ token qua `CurrentUserProvider`, client không gửi. Lỗi trả cùng định dạng với module report (`timestamp, status, code, message, path, fieldErrors`).
@@ -17,4 +18,6 @@ Một user theo dõi mỗi phường một lần. Service kiểm tra trước kh
 
 Phần tìm incident quanh vị trí user không nằm trong module này.
 
-Kiểm thử: `FeedServiceTest` (bản giả, không cần Spring) và `NotifierIntegrationTests` (HTTP + JWT trên H2).
+`/wards` cho client lấy `wardId` để gọi `POST /me/subscriptions`.
+
+Kiểm thử: `FeedServiceTest`, `WardServiceTest` (bản giả, không cần Spring) và `NotifierIntegrationTests` (HTTP + JWT trên H2).
