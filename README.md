@@ -17,6 +17,8 @@ erDiagram
         varchar username UK
         varchar password_hash
         varchar display_name
+        numeric latitude "nullable"
+        numeric longitude "nullable"
         timestamptz created_at
     }
 
