@@ -4,6 +4,7 @@ Backend dịch vụ cảnh báo ngập lụt, ùn tắc giao thông và sự c�
 
 ## Tài liệu chi tiết
 
+- Đặc tả API đầy đủ (quét từ Springdoc OpenAPI 3.1.0): [docs/API-SPECIFICATION.md](docs/API-SPECIFICATION.md) (YAML: [docs/openapi.yaml](docs/openapi.yaml), JSON: [docs/openapi.json](docs/openapi.json)).
 - Khởi tạo database và API theo schema mới: [docs/DATABASE.md](docs/DATABASE.md).
 - Chi tiết nghiệp vụ module phản ánh (report): [docs/REPORT-MODULE.md](docs/REPORT-MODULE.md).
 - Chi tiết nghiệp vụ module theo dõi phường và bảng tin (subscription & feed): [docs/NOTIFIER-MODULE.md](docs/NOTIFIER-MODULE.md).
@@ -72,7 +73,7 @@ stateDiagram-v2
 - **Quy tắc gom**: Khi người dùng tạo phản ánh mới tại `(wardId, type, latitude, longitude)`:
   1. Tìm các sự cố cùng `wardId`, cùng `type`, đang ở trạng thái hoạt động (`PENDING`, `ACTIVE`, `ALERTED`) và còn hạn (`expires_at > now`).
   2. Tính khoảng cách mặt cầu (Haversine trong `GeoUtils`) tới tâm sự cố (tọa độ phản ánh đầu tiên).
-  3. Chọn sự cố gần nhất trong bán kính **500 m** (nếu bằng nhau thì ưu tiên `id` nhỏ hơn), gắn phản ánh vào sự cố đó và gia hạn `expires_at` thêm **4 giờ** (`14400` giây).
+  3. Chọn sự cố gần nhất trong bán kính **1000 m** (nếu bằng nhau thì ưu tiên `id` nhỏ hơn), gắn phản ánh vào sự cố đó và gia hạn `expires_at` thêm **4 giờ** (`14400` giây).
   4. Nếu không có sự cố phù hợp, tạo sự cố mới ở trạng thái `PENDING` với thời hạn **4 giờ**.
 - **An toàn đồng thời**:
   - `ReportService` và `IncidentService` khóa bi quan hàng phường (`SELECT ... FOR UPDATE` qua `WardRepository.findByIdForUpdate`) trong cùng transaction khi tạo/xóa phản ánh hoặc đóng sự cố, đảm bảo nhiều request gửi cùng lúc tại một khu vực không tạo ra các sự cố trùng lặp.
