@@ -53,7 +53,7 @@ flowchart LR
 
 ```mermaid
 stateDiagram-v2
-    [*] --> PENDING : Phản ánh đầu tiên trong bán kính 500m
+    [*] --> PENDING : Phản ánh đầu tiên
     PENDING --> ACTIVE : Đủ 3 phản ánh chưa xóa
     PENDING --> RESOLVED : Cập nhật kết thúc sớm
     ACTIVE --> RESOLVED : Cập nhật kết thúc sớm
