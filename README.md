@@ -5,6 +5,7 @@ Backend dịch vụ cảnh báo ngập lụt, ùn tắc giao thông và sự c�
 ## Tài liệu chi tiết
 
 - Đặc tả API đầy đủ (quét từ Springdoc OpenAPI 3.1.0): [docs/API-SPECIFICATION.md](docs/API-SPECIFICATION.md) (YAML: [docs/openapi.yaml](docs/openapi.yaml), JSON: [docs/openapi.json](docs/openapi.json)).
+- Tài liệu về kiểm thử tải trên Kaggle CPU: https://www.kaggle.com/code/cphtcao/kieumai-notifier.
 - Khởi tạo database và API theo schema mới: [docs/DATABASE.md](docs/DATABASE.md).
 - Chi tiết nghiệp vụ module phản ánh (report): [docs/REPORT-MODULE.md](docs/REPORT-MODULE.md).
 - Chi tiết nghiệp vụ module theo dõi phường và bảng tin (subscription & feed): [docs/NOTIFIER-MODULE.md](docs/NOTIFIER-MODULE.md).
