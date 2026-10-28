@@ -1,6 +1,5 @@
 package com.kieumai.notifier.config;
 
-import com.kieumai.notifier.business.service.JwtService;
 import com.kieumai.notifier.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

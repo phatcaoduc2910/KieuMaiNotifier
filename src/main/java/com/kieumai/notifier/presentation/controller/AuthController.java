@@ -1,8 +1,6 @@
 package com.kieumai.notifier.presentation.controller;
 
 import com.kieumai.notifier.business.service.AuthService;
-import com.kieumai.notifier.business.service.CustomUserDetailsService;
-import com.kieumai.notifier.business.service.JwtService;
 import com.kieumai.notifier.presentation.dto.LoginRequest;
 import com.kieumai.notifier.presentation.dto.LoginResponse;
 import com.kieumai.notifier.presentation.dto.RegisterRequest;
@@ -11,9 +9,6 @@ import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
