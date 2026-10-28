@@ -1,18 +1,23 @@
 package com.kieumai.notifier.business.service;
 
 import com.kieumai.notifier.business.exception.ReportException;
+import com.kieumai.notifier.business.model.Incident;
 import com.kieumai.notifier.business.model.Report;
+import com.kieumai.notifier.business.model.ReportPage;
+import com.kieumai.notifier.business.model.ReportUpdate;
 import com.kieumai.notifier.config.ReportGroupingProperties;
-import com.kieumai.notifier.persistence.entity.*;
-import com.kieumai.notifier.persistence.repository.*;
-import jakarta.persistence.criteria.Predicate;
+import com.kieumai.notifier.persistence.repository.IncidentStore;
+import com.kieumai.notifier.persistence.repository.ReportStore;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.*;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 import static com.kieumai.notifier.business.exception.ReportException.Code.*;
 
@@ -22,22 +27,22 @@ import static com.kieumai.notifier.business.exception.ReportException.Code.*;
 public class ReportService {
     private static final int REPORTS_TO_ACTIVATE = 3;
     private static final Set<String> TYPES = Set.of("FLOOD", "TRAFFIC_JAM", "OTHER");
-    private final ReportRepository reportRepository;
-    private final IncidentRepository incidentRepository;
-    private final UserRepository userRepository;
-    private final WardRepository wardRepository;
+    private final ReportStore reportStore;
+    private final IncidentStore incidentStore;
     private final ReportGroupingProperties properties;
 
     public Report createReport(Report report) {
         // Lock an existing ward row so concurrent first reports cannot create duplicate incidents.
-        wardRepository.findByIdForUpdate(report.getWardId())
-                .orElseThrow(() -> new ReportException(WARD_NOT_FOUND, "Ward does not exist."));
-        User user = userRepository.findById(report.getUserId())
-                .orElseThrow(() -> new ReportException(UNAUTHORIZED, "User does not exist."));
+        if (!incidentStore.lockWard(report.getWardId())) {
+            throw new ReportException(WARD_NOT_FOUND, "Ward does not exist.");
+        }
+        if (incidentStore.findUserById(report.getUserId()).isEmpty()) {
+            throw new ReportException(UNAUTHORIZED, "User does not exist.");
+        }
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-        IncidentEntity incident = findIncident(report, now);
+        Incident incident = findIncident(report, now);
         if (incident == null) {
-            incident = new IncidentEntity();
+            incident = new Incident();
             incident.setWardId(report.getWardId());
             incident.setType(report.getType());
             incident.setLatitude(report.getLatitude());
@@ -48,30 +53,34 @@ public class ReportService {
             incident.setStartedAt(report.getObservedAt().withOffsetSameInstant(ZoneOffset.UTC));
             incident.setCreatedAt(now);
             incident.setExpiresAt(now.plusSeconds(properties.getIncidentLifetimeSeconds()));
-            incident = incidentRepository.saveAndFlush(incident);
+            incident = incidentStore.save(incident);
         } else {
             incident.setExpiresAt(now.plusSeconds(properties.getIncidentLifetimeSeconds()));
+            incident = incidentStore.save(incident);
         }
 
-        ReportEntity entity = new ReportEntity();
-        entity.setUser(user);
-        entity.setIncident(incident);
-        entity.setDescription(report.getDescription().strip());
-        entity.setLatitude(report.getLatitude());
-        entity.setLongitude(report.getLongitude());
-        entity.setObservedAt(report.getObservedAt().withOffsetSameInstant(ZoneOffset.UTC));
-        entity.setCreatedAt(now);
-        entity = reportRepository.saveAndFlush(entity);
+        Report toSave = new Report();
+        toSave.setUserId(report.getUserId());
+        toSave.setIncidentId(incident.getId());
+        toSave.setWardId(incident.getWardId());
+        toSave.setType(incident.getType());
+        toSave.setDescription(report.getDescription().strip());
+        toSave.setLatitude(report.getLatitude());
+        toSave.setLongitude(report.getLongitude());
+        toSave.setObservedAt(report.getObservedAt().withOffsetSameInstant(ZoneOffset.UTC));
+        toSave.setCreatedAt(now);
+        Report saved = reportStore.save(toSave);
 
         if ("PENDING".equals(incident.getStatus())
-                && reportRepository.countByIncidentIdAndDeletedAtIsNull(incident.getId()) >= REPORTS_TO_ACTIVATE) {
+                && reportStore.countDistinctActiveUsersByIncidentId(incident.getId()) >= REPORTS_TO_ACTIVATE) {
             incident.setStatus("ACTIVE");
+            incidentStore.save(incident);
         }
-        return toModel(entity);
+        return saved;
     }
 
-    private IncidentEntity findIncident(Report report, OffsetDateTime now) {
-        return incidentRepository.findByWardIdAndTypeAndStatusInAndExpiresAtAfterOrderByIdAsc(
+    private Incident findIncident(Report report, OffsetDateTime now) {
+        return incidentStore.findMergeCandidates(
                         report.getWardId(), report.getType(), List.of("PENDING", "ACTIVE", "ALERTED"), now).stream()
                 .map(incident -> new IncidentDistance(incident, GeoUtils.distanceMeters(
                         report.getLatitude().doubleValue(), report.getLongitude().doubleValue(),
@@ -82,64 +91,64 @@ public class ReportService {
                 .map(IncidentDistance::incident).orElse(null);
     }
 
-    private record IncidentDistance(IncidentEntity incident, double distance) {}
+    private record IncidentDistance(Incident incident, double distance) {}
 
     @Transactional(readOnly = true)
-    public Page<Report> getReports(Long wardId, String type, Long incidentId, Long userId, int page, int size) {
+    public ReportPage<Report> getReports(Long wardId, String type, Long incidentId, Long userId, int page, int size) {
         if (page < 0 || size < 1 || size > 100 || (wardId != null && wardId < 1)
                 || (incidentId != null && incidentId < 1) || (type != null && !TYPES.contains(type))) {
             throw new ReportException(VALIDATION_ERROR, "Invalid report filter or pagination.");
         }
-        if (incidentId != null && !incidentRepository.existsById(incidentId)) {
+        if (incidentId != null && !incidentStore.existsById(incidentId)) {
             throw new ReportException(INCIDENT_NOT_FOUND, "Incident does not exist.");
         }
-        var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt", "id"));
-        return reportRepository.findAll((root, query, builder) -> {
-            var predicates = new ArrayList<Predicate>();
-            var incident = root.join("incident");
-            predicates.add(builder.isNull(root.get("deletedAt")));
-            if (wardId != null) predicates.add(builder.equal(incident.get("wardId"), wardId));
-            if (type != null) predicates.add(builder.equal(incident.get("type"), type));
-            if (incidentId != null) predicates.add(builder.equal(incident.get("id"), incidentId));
-            if (userId != null) predicates.add(builder.equal(root.get("user").get("id"), userId));
-            return builder.and(predicates.toArray(Predicate[]::new));
-        }, pageable).map(this::toModel);
+        return reportStore.findReports(wardId, type, incidentId, userId, page, size);
     }
 
     public void deleteReport(long reportId, long userId) {
         if (reportId < 1) throw new ReportException(VALIDATION_ERROR, "Report ID must be positive.");
-        ReportEntity existing = visibleReport(reportId);
-        wardRepository.findByIdForUpdate(existing.getIncident().getWardId()).orElseThrow();
-        ReportEntity report = reportRepository.findVisibleByIdForUpdate(reportId)
+        Report existing = visibleReport(reportId);
+        if (!incidentStore.lockWard(existing.getWardId())) {
+            throw new ReportException(WARD_NOT_FOUND, "Ward does not exist.");
+        }
+        Report report = reportStore.findVisibleByIdForUpdate(reportId)
                 .orElseThrow(() -> new ReportException(REPORT_NOT_FOUND, "Report does not exist."));
         requireOwner(report, userId);
-        report.setDeletedAt(OffsetDateTime.now(ZoneOffset.UTC));
+        reportStore.softDelete(reportId, OffsetDateTime.now(ZoneOffset.UTC));
     }
 
-    private ReportEntity visibleReport(long reportId) {
-        return reportRepository.findByIdAndDeletedAtIsNull(reportId)
+    public ReportUpdate createReportUpdate(long reportId, long userId, String content) {
+        if (reportId < 1) throw new ReportException(VALIDATION_ERROR, "Report ID must be positive.");
+        if (content == null || content.isBlank() || content.strip().length() > 2000) {
+            throw new ReportException(VALIDATION_ERROR, "Invalid report update content.");
+        }
+        Report report = visibleReport(reportId);
+        if (incidentStore.findUserById(userId).isEmpty()) {
+            throw new ReportException(UNAUTHORIZED, "User does not exist.");
+        }
+        ReportUpdate update = new ReportUpdate();
+        update.setReportId(report.getId());
+        update.setUserId(userId);
+        update.setContent(content.strip());
+        update.setCreatedAt(OffsetDateTime.now(ZoneOffset.UTC));
+        return reportStore.saveUpdate(update);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReportUpdate> getReportUpdates(long reportId) {
+        if (reportId < 1) throw new ReportException(VALIDATION_ERROR, "Report ID must be positive.");
+        visibleReport(reportId);
+        return reportStore.findUpdatesByReportId(reportId);
+    }
+
+    private Report visibleReport(long reportId) {
+        return reportStore.findVisibleById(reportId)
                 .orElseThrow(() -> new ReportException(REPORT_NOT_FOUND, "Report does not exist."));
     }
 
-    private void requireOwner(ReportEntity report, long userId) {
-        if (!Objects.equals(report.getUser().getId(), userId)) {
+    private void requireOwner(Report report, long userId) {
+        if (!Objects.equals(report.getUserId(), userId)) {
             throw new ReportException(REPORT_NOT_OWNED, "Only the report owner can change it.");
         }
-    }
-
-    private Report toModel(ReportEntity entity) {
-        Report report = new Report();
-        report.setId(entity.getId());
-        report.setUserId(entity.getUser().getId());
-        report.setIncidentId(entity.getIncident().getId());
-        report.setWardId(entity.getIncident().getWardId());
-        report.setType(entity.getIncident().getType());
-        report.setDescription(entity.getDescription());
-        report.setLatitude(entity.getLatitude());
-        report.setLongitude(entity.getLongitude());
-        report.setObservedAt(entity.getObservedAt());
-        report.setCreatedAt(entity.getCreatedAt());
-        report.setDeletedAt(entity.getDeletedAt());
-        return report;
     }
 }

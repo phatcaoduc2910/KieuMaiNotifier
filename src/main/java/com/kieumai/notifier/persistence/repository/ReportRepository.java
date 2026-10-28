@@ -13,4 +13,7 @@ public interface ReportRepository extends JpaRepository<ReportEntity, Long>, Jpa
 
     Optional<ReportEntity> findByIdAndDeletedAtIsNull(Long id);
     long countByIncidentIdAndDeletedAtIsNull(Long incidentId);
+
+    @Query("select count(distinct r.user.id) from ReportEntity r where r.incident.id = :incidentId and r.deletedAt is null")
+    long countDistinctUserIdByIncidentIdAndDeletedAtIsNull(@Param("incidentId") Long incidentId);
 }

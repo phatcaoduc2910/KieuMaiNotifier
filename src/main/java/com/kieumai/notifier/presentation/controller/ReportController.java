@@ -2,6 +2,7 @@ package com.kieumai.notifier.presentation.controller;
 
 import com.kieumai.notifier.business.exception.ReportException;
 import com.kieumai.notifier.business.model.Report;
+import com.kieumai.notifier.business.model.ReportUpdate;
 import com.kieumai.notifier.business.service.*;
 import com.kieumai.notifier.presentation.dto.*;
 import jakarta.validation.Valid;
@@ -9,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -58,6 +61,23 @@ public class ReportController {
         reportService.deleteReport(reportId, currentUserId(authentication));
     }
 
+    @PostMapping("/reports/{reportId}/updates")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ReportUpdateDto createReportUpdate(
+            @PathVariable long reportId,
+            @Valid @RequestBody CreateReportUpdateRequest request,
+            Authentication authentication) {
+        return toUpdateDto(reportService.createReportUpdate(
+                reportId, currentUserId(authentication), request.getContent()));
+    }
+
+    @GetMapping("/reports/{reportId}/updates")
+    public List<ReportUpdateDto> getReportUpdates(@PathVariable long reportId) {
+        return reportService.getReportUpdates(reportId).stream()
+                .map(this::toUpdateDto)
+                .toList();
+    }
+
     private Long currentUserId(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new ReportException(ReportException.Code.UNAUTHORIZED, "Authentication is required.");
@@ -79,6 +99,16 @@ public class ReportController {
         response.setLongitude(report.getLongitude());
         response.setObservedAt(report.getObservedAt());
         response.setCreatedAt(report.getCreatedAt());
+        return response;
+    }
+
+    private ReportUpdateDto toUpdateDto(ReportUpdate update) {
+        ReportUpdateDto response = new ReportUpdateDto();
+        response.setId(update.getId());
+        response.setReportId(update.getReportId());
+        response.setUserId(update.getUserId());
+        response.setContent(update.getContent());
+        response.setCreatedAt(update.getCreatedAt());
         return response;
     }
 }
