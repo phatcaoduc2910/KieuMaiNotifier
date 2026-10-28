@@ -15,7 +15,7 @@
 
 ---
 
-## 2. Danh mục 16 Endpoints theo Controller
+## 2. Danh mục 17 Endpoints theo Controller
 
 ### 2.1. Auth (`AuthController`)
 | Method | Path | Auth | Request Body | Response | Mô tả |
@@ -24,14 +24,15 @@
 | `POST` | `/auth/login` | Public | `LoginRequest` | `200 OK` / `401 Unauthorized` (`LoginResponse`) | Đăng nhập nhận JWT token |
 
 ### 2.2. Thông tin cá nhân (`MeController`)
-| Method | Path | Auth | Tham số | Response | Mô tả |
+| Method | Path | Auth | Tham số / Body | Response | Mô tả |
 |---|---|---|---|---|---|
-| `GET` | `/me` | Bearer JWT | Không | `200 OK` (`MeResponse`) | Lấy `userId` và `username` của user hiện tại |
+| `GET` | `/me` | Bearer JWT | Không | `200 OK` (`MeResponse`) | Lấy `userId`, `username`, `latitude`, `longitude` của user hiện tại |
+| `PUT` | `/me/location` | Bearer JWT | Body: `UpdateLocationRequest` | `200 OK` (`MeResponse`) | Cập nhật vị trí (`latitude`, `longitude`) của user hiện tại |
 
 ### 2.3. Danh mục Phường/Xã (`WardController`)
 | Method | Path | Auth | Tham số | Response | Mô tả |
 |---|---|---|---|---|---|
-| `GET` | `/wards` | Bearer JWT | Không | `200 OK` (`List<WardResponse>`) | Danh sách các phường/xã (tự động seed 12 phường Hà Nội khi khởi động) |
+| `GET` | `/wards` | Bearer JWT | Không | `200 OK` (`List<WardResponse>`) | Danh sách các phường/xã (tự động seed 5 phường Hà Nội khi khởi động) |
 
 ### 2.4. Đăng ký theo dõi Phường/Xã (`SubscriptionController`)
 | Method | Path | Auth | Tham số / Body | Response | Mô tả |
@@ -43,20 +44,20 @@
 ### 2.5. Báo cáo sự cố (`ReportController`)
 | Method | Path | Auth | Tham số / Body | Response | Mô tả |
 |---|---|---|---|---|---|
-| `POST` | `/reports` | Bearer JWT | Body: `CreateReportRequest` | `201 Created` (`ReportDto`) | Tạo báo cáo mới, tự động gom nhóm bán kính `1000m` & kích hoạt sự cố khi đủ `>= 3` người dùng khác nhau |
+| `POST` | `/reports` | Bearer JWT | Body: `CreateReportRequest` | `201 Created` (`ReportDto`) | Tạo báo cáo mới, tự động gom nhóm bán kính `500m` & kích hoạt sự cố khi đủ `>= 3` người dùng khác nhau |
 | `GET` | `/reports` | Bearer JWT | Query: `wardId`, `type`, `incidentId`, `page=0`, `size=20` | `200 OK` (`PageResponse<ReportDto>`) | Danh sách báo cáo (có lọc & phân trang) |
 | `GET` | `/me/reports` | Bearer JWT | Query: `wardId`, `type`, `incidentId`, `page=0`, `size=20` | `200 OK` (`PageResponse<ReportDto>`) | Danh sách báo cáo do chính user hiện tại gửi |
 | `DELETE` | `/reports/{reportId}` | Bearer JWT | Path: `reportId` (`long`) | `204 No Content` | Xoá mềm báo cáo của chính mình (`deleted_at`) |
-| `POST` | `/reports/{reportId}/updates` | Bearer JWT | Path: `reportId`, Body: `CreateReportUpdateRequest` | `201 Created` (`ReportUpdateDto`) | Thêm cập nhật bổ sung cho báo cáo của chính mình |
+| `POST` | `/reports/{reportId}/updates` | Bearer JWT | Path: `reportId`, Body: `CreateReportUpdateRequest` | `201 Created` (`ReportUpdateDto`) | Thêm cập nhật bổ sung cho báo cáo |
 | `GET` | `/reports/{reportId}/updates` | Bearer JWT | Path: `reportId` (`long`) | `200 OK` (`List<ReportUpdateDto>`) | Xem lịch sử cập nhật của 1 báo cáo |
 
 ### 2.6. Sự cố (`IncidentController`)
 | Method | Path | Auth | Tham số / Body | Response | Mô tả |
 |---|---|---|---|---|---|
-| `GET` | `/incidents` | Bearer JWT | Query: `wardId`, `type` | `200 OK` (`List<IncidentResponseDto>`) | Danh sách các sự cố đang `ACTIVE` |
+| `GET` | `/incidents` | Bearer JWT | Query: `wardId`, `type` | `200 OK` (`List<IncidentResponseDto>`) | Danh sách các sự cố |
 | `GET` | `/incidents/{id}` | Bearer JWT | Path: `id` (`long`) | `200 OK` (`IncidentDetailDto`) | Chi tiết 1 sự cố |
 | `POST` | `/incidents/{id}/updates` | Bearer JWT | Path: `id` (`long`) | `200 OK` | Đánh dấu sự cố kết thúc sớm (`RESOLVED`) |
-| `GET` | `/incidents/feed` | Bearer JWT | Query: `userId` (`long`) | `200 OK` (`List<IncidentResponseDto>`) | Lấy danh sách sự cố `ACTIVE` theo `userId` |
+| `GET` | `/incidents/feed` | Bearer JWT | Query: `userId` (`long`) | `200 OK` (`List<IncidentResponseDto>`) | Lấy danh sách sự cố `ACTIVE` theo phường theo dõi hoặc bán kính `1000m` quanh vị trí của `userId` |
 
 ### 2.7. Bảng tin cảnh báo (`FeedController`)
 | Method | Path | Auth | Tham số | Response | Mô tả |
@@ -76,13 +77,17 @@
 - `LoginRequest`: `username` (`string`), `password` (`string`)
 - `LoginResponse`: `token` (`string`), `message` (`string`)
 
+### `UpdateLocationRequest`
+- `latitude` (`number`, bắt buộc, `-90 <= latitude <= 90`, tối đa 7 chữ số thập phân)
+- `longitude` (`number`, bắt buộc, `-180 <= longitude <= 180`, tối đa 7 chữ số thập phân)
+
 ### `CreateReportRequest`
 - `wardId` (`int64`, bắt buộc, `> 0`)
 - `type` (`string`, bắt buộc, khớp biểu thức: `FLOOD|TRAFFIC_JAM|OTHER`)
 - `description` (`string`, bắt buộc, `maxLength: 2000`)
 - `latitude` (`number`, bắt buộc, `-90 <= latitude <= 90`)
 - `longitude` (`number`, bắt buộc, `-180 <= longitude <= 180`)
-- `observedAt` (`date-time` ISO-8601, bắt buộc, không vượt quá thời điểm hiện tại + 5 phút)
+- `observedAt` (`date-time` ISO-8601, bắt buộc, không vượt quá thời điểm hiện tại)
 
 ### `CreateReportUpdateRequest`
 - `content` (`string`, bắt buộc, không rỗng, `maxLength: 2000`)
@@ -99,4 +104,4 @@
 - `FeedItemResponse`: `incidentId`, `wardId`, `type`, `title`, `latitude`, `longitude`, `createdAt`, `expiresAt`
 - `WardResponse`: `id`, `code`, `name`, `provinceName`
 - `SubscriptionResponse`: `id`, `wardId`, `createdAt`
-- `MeResponse`: `userId`, `username`
+- `MeResponse`: `userId`, `username`, `latitude`, `longitude`

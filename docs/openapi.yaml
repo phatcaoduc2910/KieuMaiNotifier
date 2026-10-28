@@ -8,6 +8,24 @@ servers:
 security:
 - bearerAuth: []
 paths:
+  /me/location:
+    put:
+      tags:
+      - me-controller
+      operationId: updateLocation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLocationRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MeResponse"
   /reports:
     get:
       tags:
@@ -380,6 +398,32 @@ paths:
           description: No Content
 components:
   schemas:
+    UpdateLocationRequest:
+      type: object
+      properties:
+        latitude:
+          type: number
+          maximum: 90.0
+          minimum: -90.0
+        longitude:
+          type: number
+          maximum: 180.0
+          minimum: -180.0
+      required:
+      - latitude
+      - longitude
+    MeResponse:
+      type: object
+      properties:
+        userId:
+          type: integer
+          format: int64
+        username:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
     CreateReportRequest:
       type: object
       properties:
@@ -552,14 +596,6 @@ components:
         totalPages:
           type: integer
           format: int32
-    MeResponse:
-      type: object
-      properties:
-        userId:
-          type: integer
-          format: int64
-        username:
-          type: string
     FeedItemResponse:
       type: object
       properties:
