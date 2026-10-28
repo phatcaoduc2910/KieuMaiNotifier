@@ -101,7 +101,8 @@ Tài liệu tương tác OpenAPI/Swagger có sẵn tại `http://localhost:8080/
 | --- | --- | --- | --- | --- |
 | Tài khoản | `POST` | `/auth/register` | Đăng ký tài khoản mới | Công khai |
 | Tài khoản | `POST` | `/auth/login` | Đăng nhập, nhận JWT Bearer token | Công khai |
-| Tài khoản | `GET` | `/me` | Lấy `userId` và `username` từ token hiện tại | JWT |
+| Tài khoản | `GET` | `/me` | Lấy `userId`, `username`, `latitude`, `longitude` từ token hiện tại | JWT |
+| Tài khoản | `PUT` | `/me/location` | Cập nhật tọa độ (`latitude`, `longitude`) của người dùng hiện tại | JWT |
 | Phường | `GET` | `/wards` | Danh sách phường (sắp xếp theo tỉnh, tên phường) | JWT |
 | Phản ánh | `POST` | `/reports` | Gửi phản ánh mới và tự động gom vào sự cố | JWT |
 | Phản ánh | `GET` | `/reports` | Lọc phản ánh theo `wardId`, `type`, `incidentId` (có phân trang) | JWT |
