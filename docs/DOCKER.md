@@ -1,144 +1,68 @@
-# Chạy Kiều Mai Notifier bằng Docker
+# Hướng dẫn lấy code và chạy project
 
-Docker Compose chạy hai container: `api` chứa Spring Boot và Java 21; `db` chứa PostgreSQL 18. pgAdmin là công cụ quản lý PostgreSQL. Bạn có thể tiếp tục dùng pgAdmin trên Windows để quản lý database trong container.
+## 1. Chuẩn bị
 
-Để publish image lên GitHub Container Registry hoặc tải image đã build, xem [hướng dẫn GHCR](GHCR.md). `compose.yaml` build từ source trên máy; `compose.ghcr.yaml` chạy image đã publish. Hai tệp dùng cùng tên project và volume, nên là hai cách chạy thay thế cho cùng hệ thống.
+- Cài Git.
+- Cài Docker Desktop và mở ứng dụng trước khi chạy các lệnh Docker.
+- Có quyền truy cập repository nếu repository đang ở chế độ riêng tư.
+- Để chạy image có sẵn, cần đợi workflow của dự án publish image lên GHCR thành công. Nếu image riêng tư, cần được cấp quyền tải và đăng nhập GHCR.
 
-Cấu hình này dành cho phát triển và benchmark trên máy cá nhân. Các cổng chỉ được mở tại `127.0.0.1`. Database Docker có volume riêng, không dùng thư mục dữ liệu của PostgreSQL đã cài trên Windows.
+Không cần cài Java hoặc Maven trên máy nếu chỉ chạy bằng Docker.
 
-## 1. Khởi động lần đầu
+## 2. Lấy code lần đầu
 
-Mở Docker Desktop và chờ Linux engine sẵn sàng. Mở PowerShell tại thư mục dự án:
-
-```powershell
-docker version
-docker compose version
-```
-
-Nếu chưa có `.env`, tạo từ mẫu:
+Mở PowerShell tại thư mục muốn lưu project, sau đó chạy:
 
 ```powershell
-Copy-Item .env.example .env
-notepad .env
+git clone --branch main https://github.com/phatcaoduc2910/KieuMaiNotifier.git
+cd KieuMaiNotifier
 ```
 
-Đặt `POSTGRES_PASSWORD` và `JWT_SECRET` bằng giá trị riêng. `JWT_SECRET` cần ít nhất 32 byte; dùng chuỗi ASCII ngẫu nhiên dài ít nhất 64 ký tự. `.env` đã được loại khỏi Git và Docker build context. Nếu `.env` đã tồn tại, chỉnh tệp hiện có thay vì ghi đè.
+Mở thư mục `KieuMaiNotifier` bằng IntelliJ IDEA hoặc VS Code.
 
-Khởi động cả hai container:
+Lần đầu tải project dùng `git clone`. Những lần cập nhật sau dùng `git pull`.
+
+## 3. Tạo cấu hình trên máy
+
+Tại thư mục gốc project, tạo `.env` nếu chưa có:
 
 ```powershell
-docker compose up -d --build
-docker compose ps
-docker compose logs -f api
+if (-not (Test-Path -LiteralPath .env)) {
+    Copy-Item .env.example .env
+}
 ```
 
-Build lần đầu tải Java và Maven dependencies nên có thể mất vài phút. Dockerfile chạy Maven `verify`, bao gồm bộ test, rồi đóng gói JAR; không cần cài Java hoặc Maven trên Windows. Build dừng nếu có test thất bại.
+Mở `.env` và thay các giá trị mẫu:
 
-Compose đợi PostgreSQL vượt qua healthcheck rồi mới khởi động API. Chờ log `Started NotifierApplication`, sau đó nhấn Ctrl+C để dừng xem log; container vẫn chạy.
+- `POSTGRES_PASSWORD`: mật khẩu riêng cho database trên máy.
+- `JWT_SECRET`: chuỗi bí mật ngẫu nhiên có độ dài ít nhất 32 byte.
 
-Mở Swagger UI tại [http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html).
-Trang tài liệu và hai API đăng ký/đăng nhập không yêu cầu xác thực.
+Có thể giữ nguyên các giá trị còn lại để dùng cấu hình mặc định. Không commit `.env` lên Git.
 
-1. Mở `POST /auth/register`, chọn **Try it out**, nhập `username`, `password` (ít nhất 8 ký tự) và `displayName`, rồi chọn **Execute**.
-2. Mở `POST /auth/login`, gửi cùng `username`, `password`, rồi copy giá trị `token` trong response.
-3. Chọn **Authorize**, dán token vào `bearerAuth` (không thêm tiền tố `Bearer`), rồi chọn **Authorize** và **Close**.
-4. Mở `GET /reports`, chọn **Try it out** và **Execute** để kiểm tra. Database mới trả danh sách rỗng.
+## 4. Chạy backend từ image đã phát hành
 
-Các API nghiệp vụ vẫn yêu cầu JWT; gọi khi chưa đăng nhập trả `401`. Không mở trực tiếp `/auth/register` trên thanh địa chỉ trình duyệt: thao tác đó gửi GET, trong khi API đăng ký nhận POST.
-
-Database mới có dữ liệu rỗng. Flyway tạo sáu bảng nghiệp vụ, sau đó Hibernate kiểm tra mapping bằng `ddl-auto=validate`. Database cũ không tự nâng cấp; xem [DATABASE.md](DATABASE.md) trước khi đổi phiên bản. Dữ liệu PostgreSQL cũ không tự chuyển vào container.
-
-Nếu cổng `8080` đang được backend IntelliJ sử dụng, dừng backend đó hoặc đổi `APP_PORT=8081` trong `.env`, rồi chạy lại Compose. Khi đó API ở `http://localhost:8081`.
-
-## 2. Kết nối bằng pgAdmin đang có
-
-Trong pgAdmin, chọn **Register > Server**, đặt tên như `KieuMai Docker`, rồi điền tab **Connection**:
-
-| Trường | Giá trị mặc định |
-| --- | --- |
-| Host name/address | `localhost` |
-| Port | `5434` |
-| Maintenance database | `kieumai_notifier` |
-| Username | `postgres` |
-| Password | Giá trị `POSTGRES_PASSWORD` trong `.env` |
-
-Nếu đổi tên database, user hoặc cổng trong `.env`, dùng giá trị tương ứng. Kết nối pgAdmin cũ tại `localhost:5433` vẫn trỏ đến PostgreSQL trên Windows.
-
-API trong Docker kết nối `db:5432`, vì `db` là tên dịch vụ trên mạng Compose. `localhost` bên trong container API là chính container API. Cổng `5434` chỉ dùng từ máy Windows để vào database container.
-
-Các biến `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` khởi tạo PostgreSQL khi volume còn trống. Sửa các biến này sau khi database đã có dữ liệu không tự đổi tên database, tạo user hoặc đổi mật khẩu. Muốn đổi mật khẩu, thực hiện trong PostgreSQL rồi cập nhật `.env` cho khớp.
-
-## 3. Chuyển dữ liệu PostgreSQL cũ vào Docker
-
-Các bước backup/restore dưới đây áp dụng cho dump đã khớp schema hiện tại và có lịch sử Flyway tương ứng. Dump từ phiên bản Hibernate cũ cần chuyển đổi theo [DATABASE.md](DATABASE.md) trước khi dùng backend mới.
-
-Giữ database gốc để đối chiếu. Không sao chép trực tiếp thư mục dữ liệu PostgreSQL trên Windows vào Linux container. Dùng backup/restore.
-
-Cách đơn giản với pgAdmin:
-
-1. Tại kết nối PostgreSQL cũ (`localhost:5433`), chọn database `kieumai_notifier`, nhấn **Backup**, chọn **Format: Custom**, rồi lưu tệp `.dump`.
-2. Dừng API Docker để tránh ghi dữ liệu trong lúc chuyển:
-
-   ```powershell
-   docker compose stop api
-   ```
-
-3. Tại kết nối `KieuMai Docker` (`localhost:5434`), tạo database mới tên `kieumai_notifier_import`, owner `postgres`. Dùng tên mới này để tránh xung đột với các bảng Flyway đã tạo trong database mặc định.
-4. Chọn database mới, nhấn **Restore**, chọn tệp `.dump`. Bật **Do not save > Owner** và **Privileges** nếu bản backup có role hoặc quyền từ máy cũ. Trong **Query Options**, bật **Single transaction** để lỗi restore không để lại dữ liệu dở dang. Giữ **Include CREATE DATABASE statement** và **Clean before restore** ở trạng thái tắt. Kiểm tra restore hoàn tất không có lỗi trước khi tiếp tục.
-5. Kiểm tra bảng và số lượng bản ghi trên database mới. Đổi `.env` thành `POSTGRES_DB=kieumai_notifier_import`. Database đã được tạo tại bước 3; việc sửa `.env` chỉ chuyển cấu hình kết nối.
-6. Chạy lại:
-
-   ```powershell
-   docker compose up -d --build
-   ```
-
-Nếu cần giữ mọi thay đổi mới nhất, dừng các ứng dụng đang ghi vào database cũ trước khi tạo bản backup cuối cùng. Backup không bao gồm những thay đổi phát sinh sau thời điểm snapshot.
-
-Có thể tạo backup Custom bằng PowerShell thay cho pgAdmin. Đường dẫn sau phù hợp PostgreSQL 18 đang cài trên máy:
+Sau khi lưu `.env`, chạy:
 
 ```powershell
-New-Item -ItemType Directory -Force .\backups | Out-Null
-& 'C:\Program Files\PostgreSQL\18\bin\pg_dump.exe' -h localhost -p 5433 -U postgres -d kieumai_notifier -Fc -f .\backups\kieumai_notifier.dump
+docker compose -f compose.ghcr.yaml pull
+docker compose -f compose.ghcr.yaml up -d
 ```
 
-Nhập mật khẩu PostgreSQL cũ khi được hỏi. Tệp trong `backups/` đã được loại khỏi Git và build context. Sao lưu tệp ra vị trí riêng nếu dữ liệu quan trọng.
+Các lệnh này tải image có sẵn và khởi động backend cùng PostgreSQL. Nhóm không cần build lại Java hoặc viết lại Dockerfile.
 
-## 4. Các lệnh thường dùng
+Với các cổng mặc định trong `.env`:
+
+- Backend: <http://localhost:8080>.
+- Swagger UI: <http://localhost:8080/swagger-ui/index.html>.
+- PostgreSQL từ máy host: `localhost:5434`.
+
+Kiểm tra trạng thái và log:
 
 ```powershell
-# Xem trạng thái, log và tài nguyên.
-docker compose ps
-docker compose logs --tail 100 api db
-docker stats
-
-# Build lại API sau khi sửa code.
-docker compose up -d --build api
-
-# Dừng và gỡ container, vẫn giữ database trong volume.
-docker compose down
-
-# Khởi động lại với dữ liệu cũ trong volume.
-docker compose up -d
+docker compose -f compose.ghcr.yaml ps
+docker compose -f compose.ghcr.yaml logs -f api
 ```
 
-Không dùng `docker compose down -v` nếu muốn giữ dữ liệu: tùy chọn `-v` xóa volume database. Volume giúp giữ dữ liệu qua những lần tạo lại container; volume không thay thế bản backup.
+Nhấn `Ctrl+C` để thoát chế độ xem log; các container vẫn chạy.
 
-Docker build dùng profile `docker` và biến môi trường do Compose cung cấp. `application.properties` trong Git chỉ chứa cấu hình mặc định và tham chiếu biến môi trường. Khi chạy bằng IntelliJ, đặt `SPRING_DATASOURCE_PASSWORD` và `JWT_SECRET`, hoặc tạo `application-local.properties` tại thư mục gốc dự án để ghi đè các thông số cục bộ. Tệp local này được Git bỏ qua và không được đưa vào Docker build context.
-
-## 5. Benchmark từ Kaggle
-
-Khi API Docker chạy tại `http://localhost:8080`, tunnel đã hướng dẫn vẫn dùng được:
-
-```powershell
-cloudflared tunnel --url http://localhost:8080
-```
-
-Nếu đổi `APP_PORT`, đổi cổng của lệnh tunnel tương ứng. Dùng URL HTTPS của tunnel làm `host` trong Locust trên Kaggle. Theo dõi `docker stats` trên máy backend trong lúc đo. Giữ nguyên dữ liệu và giới hạn tài nguyên Docker Desktop giữa các lần đo; độ trễ đo từ Kaggle bao gồm cả mạng và tunnel.
-
-## Tài liệu tham khảo
-
-- [Networking trong Docker Compose](https://docs.docker.com/compose/how-tos/networking/).
-- [Đợi database sẵn sàng bằng healthcheck](https://docs.docker.com/compose/how-tos/startup-order/).
-- [PostgreSQL Official Image và volume PostgreSQL 18](https://hub.docker.com/_/postgres).
-- [PostgreSQL pg_dump](https://www.postgresql.org/docs/18/app-pgdump.html).
-- [Hộp thoại Restore của pgAdmin](https://www.pgadmin.org/docs/pgadmin4/latest/restore_dialog.html).
+Database mới không chứa dữ liệu từ máy người phát triển. Có thể tạo tài khoản qua `POST /auth/register`, sau đó đăng nhập qua `POST /auth/login` để lấy token gọi các API yêu cầu xác thực.
