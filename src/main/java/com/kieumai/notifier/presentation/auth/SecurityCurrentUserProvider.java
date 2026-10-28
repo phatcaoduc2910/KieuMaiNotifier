@@ -26,6 +26,6 @@ public class SecurityCurrentUserProvider implements CurrentUserProvider {
         if (user == null) {
             throw new UnauthenticatedException("User no longer exists.");
         }
-        return new CurrentUser(user.getId(), user.getUsername());
+        return new CurrentUser(user.getId(), user.getUsername(), user.getLatitude(), user.getLongitude());
     }
 }

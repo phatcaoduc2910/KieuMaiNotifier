@@ -3,6 +3,7 @@ package com.kieumai.notifier;
 import com.kieumai.notifier.persistence.entity.IncidentEntity;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -44,6 +45,8 @@ class NotifierIntegrationTests extends ApiIntegrationSupport {
         assertEquals(401, request("GET", "/me/feed", null, null).statusCode());
         assertEquals(401, request("GET", "/wards", null, null).statusCode());
         assertEquals(401, request("GET", "/me", null, null).statusCode());
+        assertEquals(401, request("PUT", "/me/location", null,
+                Map.of("latitude", new BigDecimal("21.0285000"), "longitude", new BigDecimal("105.8048000"))).statusCode());
     }
 
     @Test
@@ -81,5 +84,33 @@ class NotifierIntegrationTests extends ApiIntegrationSupport {
         assertEquals("alice", me.get("username").asText());
         assertEquals(users.findByUsername("alice").getId(), me.get("userId").asLong());
         assertFalse(me.toString().contains("password"));
+    }
+
+    @Test
+    void userCanUpdateLocationAndReceiveNearbyActiveIncidentsInFeed() throws Exception {
+        var updated = request("PUT", "/me/location", token, Map.of(
+                "latitude", new BigDecimal("21.0285000"),
+                "longitude", new BigDecimal("105.8048000")));
+        assertEquals(200, updated.statusCode(), updated.body());
+
+        var body = json.readTree(updated.body());
+        assertEquals(0, body.get("latitude").decimalValue().compareTo(new BigDecimal("21.0285000")));
+        assertEquals(0, body.get("longitude").decimalValue().compareTo(new BigDecimal("105.8048000")));
+
+        var me = get("/me");
+        assertEquals(0, me.get("latitude").decimalValue().compareTo(new BigDecimal("21.0285000")));
+        assertEquals(0, me.get("longitude").decimalValue().compareTo(new BigDecimal("105.8048000")));
+
+        assertError(request("PUT", "/me/location", token, Map.of(
+                "latitude", new BigDecimal("91.0"),
+                "longitude", new BigDecimal("105.8048000"))), 400, "VALIDATION_ERROR");
+
+        IncidentEntity nearby = incident(wardB, "FLOOD", "ACTIVE", "21.0290000", "105.8050000");
+        incident(wardB, "FLOOD", "ACTIVE", "21.1000000", "105.9000000");
+
+        long userId = me.get("userId").asLong();
+        var nearbyFeed = get("/incidents/feed?userId=" + userId);
+        assertEquals(1, nearbyFeed.size(), nearbyFeed.toString());
+        assertEquals(nearby.getId(), nearbyFeed.get(0).get("id").asLong());
     }
 }

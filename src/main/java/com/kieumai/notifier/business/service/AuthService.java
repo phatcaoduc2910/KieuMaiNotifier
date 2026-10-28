@@ -2,6 +2,7 @@ package com.kieumai.notifier.business.service;
 
 import com.kieumai.notifier.persistence.entity.User;
 import com.kieumai.notifier.persistence.repository.UserRepository;
+import com.kieumai.notifier.presentation.auth.UnauthenticatedException;
 import com.kieumai.notifier.presentation.dto.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -10,6 +11,8 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
@@ -43,5 +46,14 @@ public class AuthService {
 
     public User findByUsername(String username) {
         return userRepository.findByUsername(username);
+    }
+
+    @Transactional
+    public User updateLocation(long userId, BigDecimal latitude, BigDecimal longitude) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UnauthenticatedException("User no longer exists."));
+        user.setLatitude(latitude);
+        user.setLongitude(longitude);
+        return userRepository.save(user);
     }
 }
