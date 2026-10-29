@@ -33,7 +33,9 @@ flowchart LR
     Business --> Persistence["Persistence Layer\n(Store/Catalog Ports & JPA Adapters)"]
     Persistence --> DB[("PostgreSQL 18\n(Flyway V1 Schema)")]
 ```
+Sơ đồ thành phần chi tiết:
 
+![Sơ đồ kiến trúc](docs/architecture/architecture.png)
 - **Presentation Layer (`com.kieumai.notifier.presentation`)**: Tiếp nhận HTTP request, kiểm tra dữ liệu đầu vào (`jakarta.validation`), ánh xạ giữa Request/Response DTO và Domain Model, chuẩn hóa phản hồi lỗi qua `ReportExceptionHandler` và `NotifierExceptionHandler`.
 - **Business Layer (`com.kieumai.notifier.business`)**: Chứa các Domain Model (`Incident`, `Report`, `ReportPage`, `ActiveIncident`, `Subscription`, `Ward`, `User`) và logic nghiệp vụ (`ReportService`, `IncidentService`, `SubscriptionService`, `FeedService`, `WardService`, `IncidentScheduler`, `GeoUtils`). Tầng nghiệp vụ làm việc qua các interface port (`ReportStore`, `IncidentStore`, `SubscriptionRepository`, `ActiveIncidentRepository`, `WardCatalog`), không phụ thuộc trực tiếp vào JPA Entity hay thư viện truy vấn database.
 - **Persistence Layer (`com.kieumai.notifier.persistence`)**: Triển khai các Adapter kết nối Spring Data JPA (`ReportStoreAdapter`, `IncidentStoreAdapter`, `SubscriptionRepositoryAdapter`, `ActiveIncidentRepositoryAdapter`, `WardCatalogAdapter`), quản lý ORM Entity và schema PostgreSQL bằng Flyway (`V1__create_notifier_schema.sql`).
