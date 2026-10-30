@@ -207,3 +207,33 @@ docker compose up -d --build
 ```powershell
 .\mvnw.cmd test -B -ntp
 ```
+
+---
+
+## 7. Hướng mở rộng cho Pha 2
+
+Pha 1 chọn cách làm đơn giản, đủ dùng ở quy mô nhỏ. Bảng dưới liệt kê những điểm sẽ trở thành giới hạn khi tải hoặc quy mô tăng, kèm hướng cải tiến và cách đo trước/sau trên cùng cấu hình Kaggle CPU.
+
+**Số liệu gốc** ([kiểm thử tải trên Kaggle CPU](https://www.kaggle.com/code/cphtcao/kieumai-notifier), backend, PostgreSQL và công cụ tạo tải chạy chung một máy, 80% request đọc, 20% ghi vào cùng một phường):
+
+| Người dùng ảo | Ghi (req/s) | Ghi p95 | Đọc (req/s) | Đọc p95 |
+|---|---|---|---|---|
+| 300 | 59,9 | 27,6 ms | 235,7 | 20,8 ms |
+| 500 | 77,6 | 827 ms | 305,4 | 741 ms |
+| 1.000 | 65,1 | 2.983 ms | 255,7 | 2.970 ms |
+| 2.000 | 53,4 | 7.185 ms | 207,1 | 7.168 ms |
+
+Mọi request đều thành công (không lỗi, không timeout) và luôn gom đúng 1 sự cố cho mỗi mức tải. Điểm gãy nằm giữa 300 và 500 người dùng: độ trễ tăng gấp khoảng 30 lần, thông lượng giảm khi tải tăng tiếp.
+
+| # | Pha 1 đang làm | Giới hạn khi mở rộng | Hướng cải tiến | Đo bằng |
+|---|---|---|---|---|
+| 1 | **Thông báo kiểu kéo:** client tự gọi `/me/feed`, không cần hạ tầng realtime | Nhiều người mở app thì số lần gọi lặp tăng theo, cảnh báo chậm tối đa một chu kỳ gọi | Đẩy thông báo bằng SSE, WebSocket hoặc FCM, phát sự kiện khi sự cố chuyển `ACTIVE` (event-driven) | Req/s đọc, thời gian từ lúc sự cố `ACTIVE` đến lúc người dùng nhận |
+| 2 | **Gom báo cáo đồng bộ:** `POST /reports` gom sự cố ngay trong request, khóa theo phường (`lockWard`) nên không tạo trùng | Báo cáo dồn vào vài phường khi mưa lớn phải xếp hàng chờ khóa, thông lượng ghi đạt đỉnh khoảng 77 req/s rồi giảm | Queue-based load leveling: nhận báo cáo, trả `202`, worker gom sau, đánh đổi tính nhất quán tức thời | Thông lượng và p95 của request ghi ở 500–2.000 người dùng |
+| 3 | **Đọc thẳng từ database:** luôn là dữ liệu mới nhất | 80% tải là đọc, `/wards` gần như không đổi, feed cùng phường giống nhau nhưng vẫn truy vấn lại mỗi lần | Cache (Caffeine hoặc Redis) với TTL ngắn, tách mô hình đọc (CQRS) | p95 đọc, số truy vấn database mỗi giây |
+| 4 | **Một instance:** `compose.yaml` chạy 1 `api` + 1 PostgreSQL, JWT stateless nên đã sẵn sàng scale ngang | Một instance là giới hạn về tải và là điểm chết duy nhất, `IncidentScheduler` (`@Scheduled`) sẽ chạy trùng khi có nhiều instance | Load balancer + nhiều instance, khóa tác vụ định kỳ bằng ShedLock, database replica | Thông lượng 1 so với 2 instance, tắt một instance khi đang có tải |
+| 5 | **Hết hạn sự cố theo chu kỳ:** scheduler quét mỗi 5 phút, dễ hiểu | Sự cố đã hết hạn vẫn có thể hiện trên feed tới 5 phút, mỗi lần quét nạp toàn bộ sự cố cần hết hạn vào bộ nhớ | Lọc thêm `expires_at` trong truy vấn feed, cập nhật hàng loạt bằng một câu SQL, hoặc hàng đợi trì hoãn | Độ trễ hết hạn, thời gian mỗi lần quét khi dữ liệu lớn |
+| 6 | **Tìm theo vị trí bằng Haversine trong Java** (`GeoUtils`): không cần extension database | `IncidentService.getFeed` tải mọi sự cố `ACTIVE` rồi tính khoảng cách từng cái, nên độ trễ tăng tuyến tính theo số sự cố | PostGIS + spatial index, lọc bằng bounding box trong SQL | Độ trễ `/incidents/feed` theo số sự cố `ACTIVE` (cần thêm kịch bản kiểm thử tải) |
+| 7 | **Chưa có giám sát:** Pha 1 tập trung vào nghiệp vụ | Kiểm thử tải thấy điểm gãy ở 300–500 người dùng nhưng chưa biết nghẽn ở connection pool, thread hay khóa | Actuator + Micrometer/Prometheus, health check cho `api` trong compose | Tiền đề để đo trước/sau cho mọi cải tiến khác |
+| 8 | **Tin người báo cáo:** sự cố được xác nhận bằng số lượt báo cáo | Nhiều tài khoản giả có thể dựng hoặc làm hết hạn sự cố, `/auth/*` chưa giới hạn tần suất, JWT sống 24 giờ, không thu hồi được | Rate limiting theo tài khoản và IP, access token ngắn hạn + refresh token, trọng số theo độ tin cậy người báo cáo | Số báo cáo giả lọt qua trong một kịch bản tấn công thử |
+
+Hướng mở thêm cho Integrability: lấy dữ liệu lượng mưa hoặc cảm biến mực nước từ bên ngoài, đi qua anti-corruption layer.
